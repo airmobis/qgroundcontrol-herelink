@@ -93,4 +93,4 @@ docs/.vitepress/cache/
 docs/.vitepress/dist/
 
 # Fork-specific -- PŠ
-custom/
+.cache/
