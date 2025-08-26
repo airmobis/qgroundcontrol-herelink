@@ -1,9 +1,8 @@
-#include <QtQml>
+#include "../include/GeoWork.h"
 #include <QDebug>
-#include "GeoWork.h"
+#include <QtQml>
 
-static void initGeoWorkQml()
-{
+static void initGeoWorkQml() {
     // Make the module exist for the import resolver
     qmlRegisterModule("GeoWork", 1, 0);
 

@@ -74,28 +74,28 @@ SOURCES += \
 
 
 HEADERS += \
-    $$PWD/src/HerelinkCorePlugin.h \
-    $$PWD/src/HerelinkOptions.h \
+    $$PWD/include/HerelinkCorePlugin.h \
+    $$PWD/include/HerelinkOptions.h \
 
 
 INCLUDEPATH += \
-    $$PWD/src \
+    $$PWD/include \
 
 # Herelink specific custom sources, for HDMI switching
 message("Including custom Herelink sources for source switching")
 
-SOURCES += $$PWD/herelink/VideoStreamControl.cc
-HEADERS += $$PWD/herelink/VideoStreamControl.h
+SOURCES += $$PWD/src/VideoStreamControl.cc
+HEADERS += $$PWD/include/VideoStreamControl.h
 INCLUDEPATH += $$PWD/herelink
 
 # Custom versions of a Herelink build should only add changes below here to prevent conflicts
 SOURCES += \
-    $$PWD/src/GeoWork.cpp \
+    $$PWD/src/GeoWork.cc \
     $$PWD/src/CustomPlugin.cc \
-    $$PWD/src/GeoWork_qmlinit.cpp
+    $$PWD/src/GeoWork_qmlinit.cc
 
 HEADERS += \
-    $$PWD/src/GeoWork.h \
-    $$PWD/src/CustomPlugin.h
+    $$PWD/include/GeoWork.h \
+    $$PWD/include/CustomPlugin.h
 
 QT += network

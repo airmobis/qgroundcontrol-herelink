@@ -1,46 +1,44 @@
-#include "GeoWork.h"
+#include "../include/GeoWork.h"
 
-#include <QNetworkRequest>
-#include <QNetworkReply>
+#include <QDateTime>
+#include <QDebug>
+#include <QFile>
+#include <QGeoCoordinate>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QFile>
-#include <QUrl>
-#include <QDebug>
-#include <QVariant>
-#include <QGeoCoordinate>
-#include <QDateTime>
-#include <QUrlQuery>
-#include <QVector>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QSet>
+#include <QUrl>
+#include <QUrlQuery>
+#include <QVariant>
+#include <QVector>
 
 // ==== QGC headers to access active vehicle ====
+#include "MultiVehicleManager.h"
 #include "QGCApplication.h"
 #include "QGCToolbox.h"
-#include "MultiVehicleManager.h"
 #include "Vehicle.h"
 
 // ===== REST endpoints =====
-static const char* kUrlSession = "https://api.geowork.mobis1.com/vehicles-reporting/session";
-static const char* kUrlState   = "https://api.geowork.mobis1.com/vehicles-reporting/project-marker-state";
-static const char* kUrlMarker  = "https://api.geowork.mobis1.com/vehicles-reporting/markers/create";
+static const char* kUrlSession        = "https://api.geowork.mobis1.com/vehicles-reporting/session";
+static const char* kUrlState          = "https://api.geowork.mobis1.com/vehicles-reporting/project-marker-state";
+static const char* kUrlMarker         = "https://api.geowork.mobis1.com/vehicles-reporting/markers/create";
 static const char* kUrlReportLocation = "https://api.geowork.mobis1.com/vehicles-reporting/report-location";
 
 // ---------------------------------------------------------
 
 GeoWork::GeoWork(QObject* parent)
-    : QObject(parent)
-{
+    : QObject { parent } {
     loadSettings();
 }
 
-QByteArray GeoWork::authHeader() const
-{
-    if (_bearerToken.isEmpty()) {
+QByteArray GeoWork::authHeader() const {
+    if (m_bearerToken.isEmpty()) {
         return QByteArray();
     }
-    QString t = _bearerToken.trimmed();
+    QString t = m_bearerToken.trimmed();
     if (!t.startsWith(QStringLiteral("Bearer "))) {
         t = QStringLiteral("Bearer ") + t;
     }
@@ -48,8 +46,7 @@ QByteArray GeoWork::authHeader() const
 }
 
 // Read active vehicle coordinate via QGC singletons
-bool GeoWork::_getActiveVehicleCoordinate(double& latOut, double& lonOut, double& altOut) const
-{
+bool GeoWork::getActiveVehicleCoordinate(double& latOut, double& lonOut, double& altOut) const {
     latOut = lonOut = altOut = 0.0;
 
     if (!qgcApp() || !qgcApp()->toolbox()) {
@@ -57,19 +54,19 @@ bool GeoWork::_getActiveVehicleCoordinate(double& latOut, double& lonOut, double
         return false;
     }
 
-    MultiVehicleManager* mvm = qgcApp()->toolbox()->multiVehicleManager();
+    MultiVehicleManager* mvm { qgcApp()->toolbox()->multiVehicleManager() };
     if (!mvm) {
         qWarning() << "[GeoWork] MultiVehicleManager not available";
         return false;
     }
 
-    Vehicle* vehicle = mvm->activeVehicle();
+    Vehicle* vehicle { mvm->activeVehicle() };
     if (!vehicle) {
         qWarning() << "[GeoWork] No active vehicle";
         return false;
     }
 
-    const QGeoCoordinate coord = vehicle->coordinate();
+    const QGeoCoordinate coord { vehicle->coordinate() };
     if (!coord.isValid()) {
         qWarning() << "[GeoWork] Active vehicle coordinate invalid";
         return false;
@@ -78,50 +75,54 @@ bool GeoWork::_getActiveVehicleCoordinate(double& latOut, double& lonOut, double
     latOut = coord.latitude();
     lonOut = coord.longitude();
     altOut = coord.altitude(); // may be NaN if not provided
+
     return true;
 }
 
 // ======================= Settings =========================
 
-void GeoWork::setDeviceName(const QString& name)
-{
+void GeoWork::setDeviceName(const QString& name) {
     const QString n = name.trimmed();
-    if (_deviceName == n) return;
-    _deviceName = n;
+    if (m_deviceName == n)
+        return;
+
+    m_deviceName = n;
     emit deviceNameChanged();
     saveSettings();
 }
 
-void GeoWork::setBearerToken(const QString& token)
-{
+void GeoWork::setBearerToken(const QString& token) {
     QString t = token.trimmed();
     if (!t.startsWith(QStringLiteral("Bearer "))) {
         t = QStringLiteral("Bearer ") + t;
     }
-    if (_bearerToken == t) return;
-    _bearerToken = t;
+
+    if (m_bearerToken == t)
+        return;
+
+    m_bearerToken = t;
     emit bearerTokenChanged();
 
     // Keep a basic presence-based status until validateToken() sets a final state
-    int newStatus = _bearerToken.isEmpty() ? 0 : _tokenStatus;
-    if (newStatus != _tokenStatus) {
-        _tokenStatus = newStatus;
+    TokenStatus newStatus { m_bearerToken.isEmpty() ? TokenStatus::None : m_tokenStatus };
+    if (newStatus != m_tokenStatus) {
+        m_tokenStatus = newStatus;
         emit tokenStatusChanged();
     }
+
     saveSettings();
 }
 
-bool GeoWork::setBearerTokenFromFile(const QString& fileUrl)
-{
+bool GeoWork::setBearerTokenFromFile(const QString& fileUrl) {
     // Accept both file:// URL and plain path
-    QString local = QUrl(fileUrl).isValid() ? QUrl(fileUrl).toLocalFile() : QString();
-    QFile f(local.isEmpty() ? fileUrl : local);
+    QString local { QUrl(fileUrl).isValid() ? QUrl(fileUrl).toLocalFile() : QString() };
+    QFile   f { local.isEmpty() ? fileUrl : local };
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "[GeoWork] Cannot open token file:" << fileUrl << f.errorString();
         return false;
     }
 
-    QString txt = QString::fromUtf8(f.readAll()).trimmed();
+    QString txt { QString::fromUtf8(f.readAll()).trimmed() };
     f.close();
 
     // Strip UTF-8 BOM if present
@@ -131,118 +132,144 @@ bool GeoWork::setBearerTokenFromFile(const QString& fileUrl)
 
     if (txt.isEmpty()) {
         qWarning() << "[GeoWork] Token file is empty:" << fileUrl;
-        if (_tokenStatus != 0) { _tokenStatus = 0; emit tokenStatusChanged(); }
+        if (m_tokenStatus != TokenStatus::None) {
+            m_tokenStatus = TokenStatus::None;
+            emit tokenStatusChanged();
+        }
+
         return false;
     }
 
-    setBearerToken(txt);   // normalizes + persists
+    setBearerToken(txt); // normalizes + persists
     qInfo() << "[GeoWork] Token loaded from" << fileUrl << "len:" << txt.size();
 
-    validateToken();       // set tokenStatus (0/1/2)
+    validateToken(); // set tokenStatus (0/1/2)
+
     return true;
 }
 
-void GeoWork::validateToken()
-{
+void GeoWork::validateToken() {
     // TODO: Replace with a real server validation endpoint if available.
-    int newStatus = 0; // NoToken
-    if (_bearerToken.isEmpty()) {
-        newStatus = 0;
-    } else if (_bearerToken.startsWith(QStringLiteral("Bearer ")) && _bearerToken.size() > 40) {
-        newStatus = 1; // Valid-ish
+    TokenStatus newStatus { TokenStatus::None };
+
+    if (m_bearerToken.isEmpty()) {
+        newStatus = TokenStatus::None;
+    } else if (m_bearerToken.startsWith(QStringLiteral("Bearer ")) && m_bearerToken.size() > 40) {
+        newStatus = TokenStatus::Valid;
     } else {
-        newStatus = 2; // Invalid
+        newStatus = TokenStatus::Invalid;
     }
-    if (newStatus != _tokenStatus) {
-        _tokenStatus = newStatus;
+    if (newStatus != m_tokenStatus) {
+        m_tokenStatus = newStatus;
         emit tokenStatusChanged();
     }
     saveSettings();
 }
 
-void GeoWork::saveSettings()
-{
-    _settings.setValue(QStringLiteral("deviceName"),  _deviceName);
-    _settings.setValue(QStringLiteral("bearerToken"), _bearerToken);
-    _settings.setValue(QStringLiteral("tokenStatus"), _tokenStatus);
-    _settings.sync();
+void GeoWork::saveSettings() {
+    m_settings.setValue(QStringLiteral("deviceName"), m_deviceName);
+    m_settings.setValue(QStringLiteral("bearerToken"), m_bearerToken);
+    m_settings.setValue(QStringLiteral("tokenStatus"), static_cast<int>(m_tokenStatus));
+    m_settings.sync();
 }
 
-void GeoWork::loadSettings()
-{
-    const QString dn = _settings.value(QStringLiteral("deviceName")).toString();
-    const QString tk = _settings.value(QStringLiteral("bearerToken")).toString();
-    const int     st = _settings.value(QStringLiteral("tokenStatus"), 0).toInt();
+void GeoWork::loadSettings() {
+    // First used for checking whether settings have correctly been parsed.
+    // Afterward, w
+    bool any { false };
 
-    bool any = false;
-    if (_deviceName != dn)   { _deviceName = dn;   emit deviceNameChanged();   any = true; }
-    if (_bearerToken != tk)  { _bearerToken = tk;  emit bearerTokenChanged();  any = true; }
-    if (_tokenStatus != st)  { _tokenStatus = st;  emit tokenStatusChanged();  any = true; }
+    const QString     dn { m_settings.value(QStringLiteral("deviceName")).toString() };
+    const QString     tk { m_settings.value(QStringLiteral("bearerToken")).toString() };
+    const TokenStatus st { m_settings.value(QStringLiteral("tokenStatus"), 0).toUInt() };
+
+    if (m_deviceName != dn) {
+        m_deviceName = dn;
+        emit deviceNameChanged();
+        any = true;
+    }
+
+    if (m_bearerToken != tk) {
+        m_bearerToken = tk;
+        emit bearerTokenChanged();
+        any = true;
+    }
+
+    if (m_tokenStatus != st) {
+        m_tokenStatus = st;
+        emit tokenStatusChanged();
+        any = true;
+    }
 
     if (any) {
-        qInfo() << "[GeoWork] Settings loaded. deviceName=" << _deviceName
-                << " tokenLen=" << _bearerToken.size()
-                << " tokenStatus=" << _tokenStatus;
+        qInfo() << "[GeoWork] Settings loaded. deviceName=" << m_deviceName
+                << " tokenLen=" << m_bearerToken.size()
+                << " tokenStatus=" << static_cast<std::uint32_t>(m_tokenStatus);
     }
 }
 
 // ======================= Network ops ======================
 
-void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
-{
+void GeoWork::checkActiveTaskAndFetchState(const QString& stateName) {
     // Cache device name for later use
-    if (_deviceName != stateName) {
-        _deviceName = stateName.trimmed();
+    if (m_deviceName != stateName) {
+        m_deviceName = stateName.trimmed();
         emit deviceNameChanged();
         saveSettings();
     }
 
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[GeoWork] No bearer token set. Open Geowork Settings and load a token file.";
-        if (_tokenStatus != 0) { _tokenStatus = 0; emit tokenStatusChanged(); }
+        if (m_tokenStatus != TokenStatus::None) {
+            m_tokenStatus = TokenStatus::None;
+            emit tokenStatusChanged();
+        }
+
         return;
     }
 
-    // 1) Check the current session for an active task
-    QNetworkRequest req(QUrl(QString::fromUtf8(kUrlSession)));
+    // 1. Check the current session for an active task.
+    QNetworkRequest req { QUrl(QString::fromUtf8(kUrlSession)) };
     req.setRawHeader("Authorization", authHeader());
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    QNetworkReply* replySession = _nam.get(req);
+    QNetworkReply* replySession { m_nam.get(req) };
 
     connect(replySession, &QNetworkReply::finished, this, [this, replySession]() {
         const QByteArray body = replySession->readAll();
 
         if (replySession->error() != QNetworkReply::NoError) {
             qWarning() << "[GeoWork] /session error:" << replySession->errorString()
-            << "payload:" << body;
+                       << "payload:" << body;
             replySession->deleteLater();
             return;
         }
 
-        QJsonParseError jerr{};
+        QJsonParseError     jerr;
         const QJsonDocument doc = QJsonDocument::fromJson(body, &jerr);
+
         if (jerr.error != QJsonParseError::NoError || !doc.isObject()) {
             qWarning() << "[GeoWork] /session JSON parse error:" << jerr.errorString();
             replySession->deleteLater();
+
             return;
         }
 
-        const QJsonObject root = doc.object();
-        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
-        const QJsonObject activeTask = data.value(QStringLiteral("activeTask")).toObject();
+        const QJsonObject root { doc.object() };
+        const QJsonObject data { root.value(QStringLiteral("data")).toObject() };
+        const QJsonObject activeTask { data.value(QStringLiteral("activeTask")).toObject() };
 
         if (activeTask.isEmpty()) {
             qInfo() << "[GeoWork] No active task.";
-            _projectId.clear();
+            m_projectId.clear();
             emit projectIdChanged();
         } else {
             const QString newProjectId = activeTask.value(QStringLiteral("projectId")).toString();
-            if (_projectId != newProjectId) {
-                _projectId = newProjectId;
+            if (m_projectId != newProjectId) {
+                m_projectId = newProjectId;
                 emit projectIdChanged();
             }
-            qInfo() << "[GeoWork] Active task projectId:" << _projectId;
+
+            qInfo() << "[GeoWork] Active task projectId:" << m_projectId;
         }
 
         replySession->deleteLater();
@@ -253,44 +280,46 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
         reqState.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
         QJsonObject payloadState;
-        payloadState.insert(QStringLiteral("name"), _deviceName);
+        payloadState.insert(QStringLiteral("name"), m_deviceName);
 
-        const QByteArray jsonBody = QJsonDocument(payloadState).toJson(QJsonDocument::Compact);
-        QNetworkReply* replyState = _nam.post(reqState, jsonBody);
+        const QByteArray jsonBody { QJsonDocument(payloadState).toJson(QJsonDocument::Compact) };
+        QNetworkReply*   replyState { m_nam.post(reqState, jsonBody) };
 
         connect(replyState, &QNetworkReply::finished, this, [this, replyState]() {
-            const QByteArray body2 = replyState->readAll();
+            const QByteArray body2 { replyState->readAll() };
 
             if (replyState->error() != QNetworkReply::NoError) {
                 qWarning() << "[GeoWork] /project-marker-state error:" << replyState->errorString()
-                << "payload:" << body2;
+                           << "payload:" << body2;
                 replyState->deleteLater();
+
                 return;
             }
 
-            QJsonParseError jerr2{};
-            const QJsonDocument doc2 = QJsonDocument::fromJson(body2, &jerr2);
+            QJsonParseError     jerr2;
+            const QJsonDocument doc2 { QJsonDocument::fromJson(body2, &jerr2) };
             if (jerr2.error != QJsonParseError::NoError || !doc2.isObject()) {
                 qWarning() << "[GeoWork] /project-marker-state JSON parse error:" << jerr2.errorString();
                 replyState->deleteLater();
+
                 return;
             }
 
-            const QJsonObject root2 = doc2.object();
-            const QJsonObject data2 = root2.value(QStringLiteral("data")).toObject();
-            const QJsonObject state  = data2.value(QStringLiteral("state")).toObject();
+            const QJsonObject root2 { doc2.object() };
+            const QJsonObject data2 { root2.value(QStringLiteral("data")).toObject() };
+            const QJsonObject state { data2.value(QStringLiteral("state")).toObject() };
 
-            const QString newStateId = state.value(QStringLiteral("id")).toString();
+            const QString newStateId { state.value(QStringLiteral("id")).toString() };
 
-            if (_stateId != newStateId) {
-                _stateId = newStateId;
+            if (m_stateId != newStateId) {
+                m_stateId = newStateId;
                 emit stateIdChanged();
             }
 
-            if (_stateId.isEmpty()) {
+            if (m_stateId.isEmpty()) {
                 qWarning() << "[GeoWork] state.id missing in response";
             } else {
-                qInfo() << "[GeoWork] stateId:" << _stateId;
+                qInfo() << "[GeoWork] stateId:" << m_stateId;
             }
 
             replyState->deleteLater();
@@ -298,19 +327,18 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
     });
 }
 
-void GeoWork::createMarker()
-{
-    if (_bearerToken.isEmpty()) {
+void GeoWork::createMarker() {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[GeoWork] createMarker(): No bearer token set.";
         return;
     }
-    if (_stateId.isEmpty()) {
+    if (m_stateId.isEmpty()) {
         qWarning() << "[GeoWork] createMarker(): stateId is empty. Run checkActiveTaskAndFetchState() first.";
         return;
     }
 
     double lat = 0.0, lon = 0.0, alt = 0.0;
-    if (!_getActiveVehicleCoordinate(lat, lon, alt)) {
+    if (!getActiveVehicleCoordinate(lat, lon, alt)) {
         qWarning() << "[GeoWork] createMarker(): No valid GPS from active vehicle.";
         return;
     }
@@ -325,27 +353,27 @@ void GeoWork::createMarker()
 
     // Payload
     QJsonObject payload;
-    payload.insert(QStringLiteral("stateId"), _stateId);
+    payload.insert(QStringLiteral("stateId"), m_stateId);
     payload.insert(QStringLiteral("geometry"), geom);
 
     QNetworkRequest req(QUrl(QString::fromUtf8(kUrlMarker)));
     req.setRawHeader("Authorization", authHeader());
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    const QByteArray body = QJsonDocument(payload).toJson(QJsonDocument::Compact);
-    QNetworkReply* reply = _nam.post(req, body);
+    const QByteArray body  = QJsonDocument(payload).toJson(QJsonDocument::Compact);
+    QNetworkReply*   reply = m_nam.post(req, body);
 
     connect(reply, &QNetworkReply::finished, this, [reply, lat, lon]() {
         const QByteArray resp = reply->readAll();
 
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "[GeoWork] /markers/create error:" << reply->errorString()
-            << "payload:" << resp;
+                       << "payload:" << resp;
             reply->deleteLater();
             return;
         }
 
-        QJsonParseError jerr{};
+        QJsonParseError     jerr {};
         const QJsonDocument doc = QJsonDocument::fromJson(resp, &jerr);
         if (jerr.error != QJsonParseError::NoError || !doc.isObject()) {
             qWarning() << "[GeoWork] /markers/create JSON parse error:" << jerr.errorString();
@@ -353,9 +381,9 @@ void GeoWork::createMarker()
             return;
         }
 
-        const QJsonObject root = doc.object();
-        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
-        const QString markerId = data.value(QStringLiteral("id")).toString();
+        const QJsonObject root     = doc.object();
+        const QJsonObject data     = root.value(QStringLiteral("data")).toObject();
+        const QString     markerId = data.value(QStringLiteral("id")).toString();
 
         if (!markerId.isEmpty()) {
             qInfo() << "[GeoWork] Marker created at" << lat << "," << lon << " id:" << markerId;
@@ -369,46 +397,50 @@ void GeoWork::createMarker()
 
 // Safely get a nested Fact rawValue: vehicle.<group>.<fact>.rawValue
 // Returns {true, value} on success; {false, 0} if any link in the chain is missing.
-static std::pair<bool, double> getFactRawDouble(QObject* groupObj, const char* factName)
-{
-    if (!groupObj) return {false, 0.0};
+static std::pair<bool, double> getFactRawDouble(QObject* groupObj, const char* factName) {
+    if (!groupObj)
+        return { false, 0.0 };
     QVariant factVar = groupObj->property(factName);
     QObject* factObj = factVar.value<QObject*>();
-    if (!factObj) return {false, 0.0};
+    if (!factObj)
+        return { false, 0.0 };
     const QVariant raw = factObj->property("rawValue");
-    if (!raw.isValid()) return {false, 0.0};
-    return {true, raw.toDouble()};
+    if (!raw.isValid())
+        return { false, 0.0 };
+    return { true, raw.toDouble() };
 }
 
 // Convenience: pull a QObject* sub-object by name from vehicle (e.g., "gps", "battery", …)
-static QObject* vehicleSubObject(QObject* v, const char* name)
-{
-    if (!v) return nullptr;
+static QObject* vehicleSubObject(QObject* v, const char* name) {
+    if (!v)
+        return nullptr;
     QVariant sub = v->property(name);
     return sub.value<QObject*>();
 }
 
 // ---- Helpers for robust fact lookup ----
-static std::pair<bool,double> getAnyPressure(QObject* groupObj)
-{
-    if (!groupObj) return {false, 0.0};
-    const char* names[] = {"absPressure","absolutePressure","baroPressure","pressure","staticPressure","pressAbs","ambPressure"};
+static std::pair<bool, double> getAnyPressure(QObject* groupObj) {
+    if (!groupObj)
+        return { false, 0.0 };
+    const char* names[] = { "absPressure", "absolutePressure", "baroPressure", "pressure", "staticPressure", "pressAbs", "ambPressure" };
     for (const char* n : names) {
         auto res = getFactRawDouble(groupObj, n);
-        if (res.first) return res;
+        if (res.first)
+            return res;
     }
-    return {false, 0.0};
+    return { false, 0.0 };
 }
 
-static QVector<QObject*> collectBatteryGroups(QObject* vehicle)
-{
+static QVector<QObject*> collectBatteryGroups(QObject* vehicle) {
     QVector<QObject*> out;
-    if (!vehicle) return out;
-    const char* names[] = {"battery","battery1","battery2","battery3"};
+    if (!vehicle)
+        return out;
+    const char* names[] = { "battery", "battery1", "battery2", "battery3" };
     for (const char* n : names) {
         QVariant v = vehicle->property(n);
         if (v.isValid()) {
-            if (QObject* o = v.value<QObject*>()) out.append(o);
+            if (QObject* o = v.value<QObject*>())
+                out.append(o);
         }
     }
     // Also try "batteries" list model, if present
@@ -416,20 +448,26 @@ static QVector<QObject*> collectBatteryGroups(QObject* vehicle)
     if (lstVar.isValid()) {
         if (QObject* listObj = lstVar.value<QObject*>()) {
             const auto children = listObj->findChildren<QObject*>(QString(), Qt::FindDirectChildrenOnly);
-            for (QObject* c : children) if (c) out.append(c);
+            for (QObject* c : children)
+                if (c)
+                    out.append(c);
         }
     }
     // Deduplicate and clamp to 3
-    QSet<QObject*> seen;
+    QSet<QObject*>    seen;
     QVector<QObject*> dedup;
-    for (QObject* o : out) if (o && !seen.contains(o)) { seen.insert(o); dedup.append(o); }
-    while (dedup.size() > 3) dedup.removeLast();
+    for (QObject* o : out)
+        if (o && !seen.contains(o)) {
+            seen.insert(o);
+            dedup.append(o);
+        }
+    while (dedup.size() > 3)
+        dedup.removeLast();
     return dedup;
 }
-void GeoWork::reportLocation()
-{
+void GeoWork::reportLocation() {
     // --- Guards ---
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[GeoWork] reportLocation(): No bearer token set.";
         return;
     }
@@ -437,8 +475,8 @@ void GeoWork::reportLocation()
         qWarning() << "[GeoWork] reportLocation(): App/toolbox not ready.";
         return;
     }
-    MultiVehicleManager* mvm = qgcApp()->toolbox()->multiVehicleManager();
-    Vehicle* vehicle = mvm ? mvm->activeVehicle() : nullptr;
+    MultiVehicleManager* mvm     = qgcApp()->toolbox()->multiVehicleManager();
+    Vehicle*             vehicle = mvm ? mvm->activeVehicle() : nullptr;
     if (!vehicle) {
         qWarning() << "[GeoWork] reportLocation(): No active vehicle.";
         return;
@@ -459,11 +497,12 @@ void GeoWork::reportLocation()
 
     // --- Pull additional telemetry via generic Fact access (defensive) ---
     // gps.count
-    QObject* gpsObj = vehicleSubObject(vehicle, "gps");
-    int gpsSatellites = 0;
+    QObject* gpsObj        = vehicleSubObject(vehicle, "gps");
+    int      gpsSatellites = 0;
     {
         auto [ok, v] = getFactRawDouble(gpsObj, "count");
-        if (ok) gpsSatellites = static_cast<int>(v);
+        if (ok)
+            gpsSatellites = static_cast<int>(v);
     }
 
     // groundSpeed (Vehicle usually exposes a Q_PROPERTY "groundSpeed" in m/s)
@@ -474,25 +513,37 @@ void GeoWork::reportLocation()
 
     // heading (deg)
     // battery facts (supports up to 3 packs)
-    QVector<QObject*> batGroups = collectBatteryGroups(vehicle);
-    double batVoltage = qQNaN();
-    double batCurrent = qQNaN();
-    double batConsumed = qQNaN();   // QGC usually exposes "mahConsumed" (mAh)
-    QList<double> batVoltages, batCurrents, batMah;
+    QVector<QObject*> batGroups   = collectBatteryGroups(vehicle);
+    double            batVoltage  = qQNaN();
+    double            batCurrent  = qQNaN();
+    double            batConsumed = qQNaN(); // QGC usually exposes "mahConsumed" (mAh)
+    QList<double>     batVoltages, batCurrents, batMah;
 
     for (int i = 0; i < batGroups.size() && i < 3; ++i) {
-        QObject* b = batGroups[i];
+        QObject* b     = batGroups[i];
         auto [okV, vV] = getFactRawDouble(b, "voltage");
         auto [okC, vC] = getFactRawDouble(b, "current");
         auto [okM, vM] = getFactRawDouble(b, "mahConsumed");
-        if (!okM) { auto alt = getFactRawDouble(b, "mah_consumed"); if (alt.first) { okM = true; vM = alt.second; } }
-        if (okV) batVoltages.append(vV);
-        if (okC) batCurrents.append(vC);
-        if (okM) batMah.append(vM);
+        if (!okM) {
+            auto alt = getFactRawDouble(b, "mah_consumed");
+            if (alt.first) {
+                okM = true;
+                vM  = alt.second;
+            }
+        }
+        if (okV)
+            batVoltages.append(vV);
+        if (okC)
+            batCurrents.append(vC);
+        if (okM)
+            batMah.append(vM);
     }
-    if (!batVoltages.isEmpty()) batVoltage = batVoltages.first();
-    if (!batCurrents.isEmpty()) batCurrent = batCurrents.first();
-    if (!batMah.isEmpty())      batConsumed = batMah.first();
+    if (!batVoltages.isEmpty())
+        batVoltage = batVoltages.first();
+    if (!batCurrents.isEmpty())
+        batCurrent = batCurrents.first();
+    if (!batMah.isEmpty())
+        batConsumed = batMah.first();
 
     // absolute pressure (try several groups and names)
     double pressAbs = qQNaN();
@@ -500,117 +551,111 @@ void GeoWork::reportLocation()
         QObject* envObj     = vehicleSubObject(vehicle, "environment");
         QObject* airObj     = vehicleSubObject(vehicle, "air");
         QObject* sensorsObj = vehicleSubObject(vehicle, "sensors");
-        auto p1 = getAnyPressure(envObj);
-        auto p2 = getAnyPressure(airObj);
-        auto p3 = getAnyPressure(sensorsObj);
-        if (p1.first)      pressAbs = p1.second;
-        else if (p2.first) pressAbs = p2.second;
-        else if (p3.first) pressAbs = p3.second;
+        auto     p1         = getAnyPressure(envObj);
+        auto     p2         = getAnyPressure(airObj);
+        auto     p3         = getAnyPressure(sensorsObj);
+        if (p1.first)
+            pressAbs = p1.second;
+        else if (p2.first)
+            pressAbs = p2.second;
+        else if (p3.first)
+            pressAbs = p3.second;
     }
 
     // --- Build payload (same structure as your Python) ---
     QJsonArray meta;
 
     // satellites
-    meta.append(QJsonObject{
-        { "key",   "satellites" },
+    meta.append(QJsonObject {
+        { "key", "satellites" },
         { "value", QString::number(gpsSatellites) } //,        { "unit",  "number" }
     });
 
     // ground speed (m/s)
     if (std::isfinite(groundSpeed)) {
-        meta.append(QJsonObject{
-            { "key",   "ground_speed" },
+        meta.append(QJsonObject {
+            { "key", "ground_speed" },
             { "value", QString::number(groundSpeed, 'f', 2) },
-            { "unit",  "m/s" }
-        });
+            { "unit", "m/s" } });
     }
 
     // heading (deg)
     if (std::isfinite(heading)) {
-        meta.append(QJsonObject{
-            { "key",   "heading" },
+        meta.append(QJsonObject {
+            { "key", "heading" },
             { "value", QString::number(heading) },
-            { "unit",  "deg" }
-        });
+            { "unit", "deg" } });
     }
 
     // battery voltage (V)
     if (std::isfinite(batVoltage)) {
-        meta.append(QJsonObject{
-            { "key",   "bat_voltage" },
+        meta.append(QJsonObject {
+            { "key", "bat_voltage" },
             { "value", QString::number(batVoltage) },
-            { "unit",  "V" }
-        });
+            { "unit", "V" } });
     }
 
     // battery current (A)
     if (std::isfinite(batCurrent)) {
-        meta.append(QJsonObject{
-            { "key",   "bat_current" },
+        meta.append(QJsonObject {
+            { "key", "bat_current" },
             { "value", QString::number(batCurrent) },
-            { "unit",  "A" }
-        });
+            { "unit", "A" } });
     }
 
     // total consumption – QGC exposes mAh; your Python key was "current_consumed"
     if (std::isfinite(batConsumed)) {
-        meta.append(QJsonObject{
-            { "key",   "current_consumed" },
+        meta.append(QJsonObject {
+            { "key", "current_consumed" },
             { "value", QString::number(batConsumed) },
-            { "unit",  "mA" } // clarify unit; change to "A" / "Ah" if your backend expects that
+            { "unit", "mA" } // clarify unit; change to "A" / "Ah" if your backend expects that
         });
-    // per-pack battery values (up to 3)
-    for (int i = 0; i < batVoltages.size() && i < 3; ++i) {
-        meta.append(QJsonObject{
-            { "key",   QString("bat%1_voltage").arg(i+1) },
-            { "value", QString::number(batVoltages[i]) },
-            { "unit",  "V" }
-        });
-    }
-    for (int i = 0; i < batCurrents.size() && i < 3; ++i) {
-        meta.append(QJsonObject{
-            { "key",   QString("bat%1_current").arg(i+1) },
-            { "value", QString::number(batCurrents[i]) },
-            { "unit",  "A" }
-        });
-    }
-    for (int i = 0; i < batMah.size() && i < 3; ++i) {
-        meta.append(QJsonObject{
-            { "key",   QString("bat%1_mah").arg(i+1) },
-            { "value", QString::number(batMah[i]) },
-            { "unit",  "mA" }
-        });
-    }
+        // per-pack battery values (up to 3)
+        for (int i = 0; i < batVoltages.size() && i < 3; ++i) {
+            meta.append(QJsonObject {
+                { "key", QString("bat%1_voltage").arg(i + 1) },
+                { "value", QString::number(batVoltages[i]) },
+                { "unit", "V" } });
+        }
+        for (int i = 0; i < batCurrents.size() && i < 3; ++i) {
+            meta.append(QJsonObject {
+                { "key", QString("bat%1_current").arg(i + 1) },
+                { "value", QString::number(batCurrents[i]) },
+                { "unit", "A" } });
+        }
+        for (int i = 0; i < batMah.size() && i < 3; ++i) {
+            meta.append(QJsonObject {
+                { "key", QString("bat%1_mah").arg(i + 1) },
+                { "value", QString::number(batMah[i]) },
+                { "unit", "mA" } });
+        }
     }
 
     // absolute pressure (if available)
     if (std::isfinite(pressAbs)) {
-        meta.append(QJsonObject{
-            { "key",   "press_abs" },
+        meta.append(QJsonObject {
+            { "key", "press_abs" },
             { "value", QString::number(pressAbs, 'f', 2) },
-            {"units", "Pa"}
-        });
+            { "units", "Pa" } });
     }
 
     // altitude (from coordinate)
     if (std::isfinite(alt)) {
-        meta.append(QJsonObject{
-            { "key",   "altitude" },
+        meta.append(QJsonObject {
+            { "key", "altitude" },
             { "value", QString::number(alt, 'f', 1) },
-            {"units","m"}
-        });
+            { "units", "m" } });
     }
 
-    QJsonObject loc{
-        { "latitude",  lat },
+    QJsonObject loc {
+        { "latitude", lat },
         { "longitude", lon },
         { "timestamp", timestamp },
-        { "meta",      meta }
+        { "meta", meta }
     };
 
-    QJsonObject payload{
-        { "locations", QJsonArray{ loc } }
+    QJsonObject payload {
+        { "locations", QJsonArray { loc } }
     };
 
     // --- POST it ---
@@ -619,13 +664,13 @@ void GeoWork::reportLocation()
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
     const QByteArray jsonBody = QJsonDocument(payload).toJson(QJsonDocument::Compact);
-    QNetworkReply* nrep = _nam.post(req, jsonBody);
+    QNetworkReply*   nrep     = m_nam.post(req, jsonBody);
 
     connect(nrep, &QNetworkReply::finished, this, [nrep]() {
         const QByteArray r = nrep->readAll();
         if (nrep->error() != QNetworkReply::NoError) {
             qWarning() << "[GeoWork] /report-location error:" << nrep->errorString()
-            << "payload:" << r;
+                       << "payload:" << r;
             nrep->deleteLater();
             return;
         }
