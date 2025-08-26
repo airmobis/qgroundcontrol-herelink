@@ -60,8 +60,9 @@ CONFIG += AndroidHomeApp
 
 # Our own, custom resources
 # Not yet used
-#RESOURCES += \
-#    $$PWD/custom.qrc
+RESOURCES += \
+    $$PWD/custom.qrc
+message(*** USING custom.qrc from $$PWD ***)
 
 QML_IMPORT_PATH += \
    $$PWD/src
@@ -71,9 +72,11 @@ SOURCES += \
     $$PWD/src/HerelinkCorePlugin.cc \
     $$PWD/src/HerelinkOptions.cc \
 
+
 HEADERS += \
     $$PWD/src/HerelinkCorePlugin.h \
     $$PWD/src/HerelinkOptions.h \
+
 
 INCLUDEPATH += \
     $$PWD/src \
@@ -86,3 +89,13 @@ HEADERS += $$PWD/herelink/VideoStreamControl.h
 INCLUDEPATH += $$PWD/herelink
 
 # Custom versions of a Herelink build should only add changes below here to prevent conflicts
+SOURCES += \
+    $$PWD/src/GeoWork.cpp \
+    $$PWD/src/CustomPlugin.cc \
+    $$PWD/src/GeoWork_qmlinit.cpp
+
+HEADERS += \
+    $$PWD/src/GeoWork.h \
+    $$PWD/src/CustomPlugin.h
+
+QT += network

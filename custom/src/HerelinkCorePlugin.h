@@ -9,20 +9,21 @@
 
 Q_DECLARE_LOGGING_CATEGORY(HerelinkCorePluginLog)
 
-class HerelinkCorePlugin : public QGCCorePlugin {
+class HerelinkCorePlugin : public QGCCorePlugin
+{
     Q_OBJECT
 
 public:
     HerelinkCorePlugin(QGCApplication* app, QGCToolbox* toolbox);
 
     Q_PROPERTY(bool isHerelink READ isHerelink CONSTANT)
-    bool isHerelink() const { return true; }
+    bool isHerelink (void) const { return true; }
 
     // Overrides from QGCCorePlugin
-    QGCOptions* options() override { return qobject_cast<QGCOptions*>(_herelinkOptions); }
-    bool        overrideSettingsGroupVisibility(QString name) override;
-    bool        adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData) override;
-    void        factValueGridCreateDefaultSettings(const QString& defaultSettingsGroup) override;
+    QGCOptions* options                                (void) override { return qobject_cast<QGCOptions*>(_herelinkOptions); }
+    bool        overrideSettingsGroupVisibility        (QString name) override;
+    bool        adjustSettingMetaData                  (const QString& settingsGroup, FactMetaData& metaData) override;
+    void        factValueGridCreateDefaultSettings     (const QString& defaultSettingsGroup) override;
 
     // Overrides from QGCTool
     void setToolbox(QGCToolbox* toolbox) override;
@@ -31,5 +32,5 @@ private slots:
     void _activeVehicleChanged(Vehicle* activeVehicle);
 
 private:
-    HerelinkOptions* _herelinkOptions {nullptr};
+    HerelinkOptions* _herelinkOptions = nullptr;
 };

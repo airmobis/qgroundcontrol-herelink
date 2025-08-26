@@ -13,6 +13,7 @@ class VideoStreamControl : public QObject
     Q_OBJECT
 public:
     VideoStreamControl();
+    ~VideoStreamControl();
 
     Q_PROPERTY(bool settingInProgress READ settingInProgress NOTIFY settingInProgressChanged)
     bool settingInProgress() { return _settingInProgress; }
