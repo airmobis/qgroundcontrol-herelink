@@ -2,7 +2,6 @@
 #include "HerelinkCorePlugin.h"
 
 HerelinkOptions::HerelinkOptions(HerelinkCorePlugin* /* plugin */, QObject* parent)
-    : QGCOptions(parent)
+    : QGCOptions{parent}
 {
-
 }

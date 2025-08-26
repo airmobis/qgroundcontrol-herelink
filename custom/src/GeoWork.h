@@ -19,16 +19,16 @@ class GeoWork : public QObject {
     Q_PROPERTY(QString bearerToken READ bearerToken WRITE setBearerToken NOTIFY bearerTokenChanged)
 
     // 0 = NoToken (grey), 1 = Valid (green), 2 = Invalid (red)
-    Q_PROPERTY(int tokenStatus     READ tokenStatus                      NOTIFY tokenStatusChanged)
+    Q_PROPERTY(int tokenStatus READ tokenStatus NOTIFY tokenStatusChanged)
 
 public:
     explicit GeoWork(QObject* parent = nullptr);
 
     // Getters for QML
-    QString projectId()   const { return _projectId; }
-    QString stateId()     const { return _stateId; }
-    QString deviceName()  const { return _deviceName; }
-    QString bearerToken() const { return _bearerToken; }
+    QString projectId()   const { return m_projectId; }
+    QString stateId()     const { return m_stateId; }
+    QString deviceName()  const { return m_deviceName; }
+    QString bearerToken() const { return m_bearerToken; }
     int     tokenStatus() const { return _tokenStatus; }
 
 public slots:
@@ -38,12 +38,12 @@ public slots:
 
     // 2) Create a marker using current GPS from active vehicle
     void createMarker();
+
     // ---- Minimal additions ----
     Q_INVOKABLE void setVideoItem(QObject* videoItem);   // bind the live video surface from QML
     Q_INVOKABLE void AddPhoto();
     Q_INVOKABLE void AddPhotoForMarker(const QString& markerId);
     Q_INVOKABLE void autoBindVideo();  // try to locate video item automatically                         // capture current frame and save to Downloads
-
 
     // --- Settings helpers (persisted via QSettings) ---
     void setDeviceName(const QString& name);
@@ -71,26 +71,34 @@ signals:
 private:
     QByteArray authHeader() const;
 
-// --- Minimal additions for frame capture ---
-void _captureAndSave();
-    void _uploadPhotoToMarker(const QString& markerId, const QString& photoPath);
-    QQuickItem* _findVideoItemRecursive(QQuickItem* root) const; // internal helper
-QObject* _videoItemObj {nullptr};
+    // --- Minimal additions for frame capture ---
+    void captureAndSave();
+    void uploadPhotoToMarker(const QString& markerId, const QString& photoPath);
 
+    QQuickItem* findVideoItemRecursive(QQuickItem* root) const; // internal helper
+    QObject* m_videoItemObj {nullptr};
 
     // Returns true if we could read a valid lat/lon from QGC's active vehicle
-    bool _getActiveVehicleCoordinate(double& latOut, double& lonOut, double& altOut) const;
+    bool getActiveVehicleCoordinate(double& latOut, double& lonOut, double& altOut) const;
 
-    QNetworkAccessManager _nam;
+    QNetworkAccessManager m_nam;
 
     // Cached runtime state
-    QString _projectId;
-    QString _stateId;
+    QString m_projectId;
+    QString m_stateId;
 
     // Persisted user settings
-    QString _deviceName;     // e.g., "BLUE001"
-    QString _bearerToken;    // normalized to start with "Bearer "
-    int     _tokenStatus = 0; // 0=no token, 1=valid, 2=invalid
+    QString m_deviceName;  // e.g., "BLUE001"
+    QString m_bearerToken; // normalized to start with "Bearer "
+
+public:
+    enum class TokenStatus {
+        None,
+        Valid,
+        Invalid
+    };
+private:
+    TokenStatus _tokenStatus {TokenStatus::None};
 
     // Organization/App for QSettings (Android/desktop-safe)
     QSettings _settings{ "Airmobis", "QGroundControl" };

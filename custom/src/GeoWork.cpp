@@ -34,34 +34,37 @@
 #include <QImageWriter>
 #include <QStandardPaths>
 #include <QThread>
+
 // ===== REST endpoints =====
-static const char* kUrlSession = "https://api.geowork.mobis1.com/vehicles-reporting/session";
-static const char* kUrlState   = "https://api.geowork.mobis1.com/vehicles-reporting/project-marker-state";
-static const char* kUrlMarker  = "https://api.geowork.mobis1.com/vehicles-reporting/markers/create";
-static const char* kUrlReportLocation = "https://api.geowork.mobis1.com/vehicles-reporting/report-location";
+static const char *kUrlSession{"https://api.geowork.mobis1.com/vehicles-reporting/session"},
+    *kUrlState{"https://api.geowork.mobis1.com/vehicles-reporting/project-marker-state"},
+    *kUrlMarker{"https://api.geowork.mobis1.com/vehicles-reporting/markers/create"},
+    *kUrlReportLocation{"https://api.geowork.mobis1.com/vehicles-reporting/report-location"};
 
 // ---------------------------------------------------------
 
 GeoWork::GeoWork(QObject* parent)
-    : QObject(parent)
+    : QObject{parent}
 {
     loadSettings();
 }
 
 QByteArray GeoWork::authHeader() const
 {
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         return QByteArray();
     }
-    QString t = _bearerToken.trimmed();
+
+    QString t{m_bearerToken.trimmed()};
     if (!t.startsWith(QStringLiteral("Bearer "))) {
         t = QStringLiteral("Bearer ") + t;
     }
+
     return t.toUtf8();
 }
 
 // Read active vehicle coordinate via QGC singletons
-bool GeoWork::_getActiveVehicleCoordinate(double& latOut, double& lonOut, double& altOut) const
+bool GeoWork::getActiveVehicleCoordinate(double &latOut, double &lonOut, double &altOut) const
 {
     latOut = lonOut = altOut = 0.0;
 
@@ -99,8 +102,9 @@ bool GeoWork::_getActiveVehicleCoordinate(double& latOut, double& lonOut, double
 void GeoWork::setDeviceName(const QString& name)
 {
     const QString n = name.trimmed();
-    if (_deviceName == n) return;
-    _deviceName = n;
+    if (m_deviceName == n)
+        return;
+    m_deviceName = n;
     emit deviceNameChanged();
     saveSettings();
 }
@@ -111,16 +115,18 @@ void GeoWork::setBearerToken(const QString& token)
     if (!t.startsWith(QStringLiteral("Bearer "))) {
         t = QStringLiteral("Bearer ") + t;
     }
-    if (_bearerToken == t) return;
-    _bearerToken = t;
+    if (m_bearerToken == t)
+        return;
+    m_bearerToken = t;
     emit bearerTokenChanged();
 
     // Keep a basic presence-based status until validateToken() sets a final state
-    int newStatus = _bearerToken.isEmpty() ? 0 : _tokenStatus;
+    TokenStatus newStatus = m_bearerToken.isEmpty() ? TokenStatus::None : _tokenStatus;
     if (newStatus != _tokenStatus) {
         _tokenStatus = newStatus;
         emit tokenStatusChanged();
     }
+
     saveSettings();
 }
 
@@ -134,7 +140,7 @@ bool GeoWork::setBearerTokenFromFile(const QString& fileUrl)
         return false;
     }
 
-    QString txt = QString::fromUtf8(f.readAll()).trimmed();
+    QString txt {QString::fromUtf8(f.readAll()).trimmed()};
     f.close();
 
     // Strip UTF-8 BOM if present
@@ -144,7 +150,10 @@ bool GeoWork::setBearerTokenFromFile(const QString& fileUrl)
 
     if (txt.isEmpty()) {
         qWarning() << "[GeoWork] Token file is empty:" << fileUrl;
-        if (_tokenStatus != 0) { _tokenStatus = 0; emit tokenStatusChanged(); }
+        if (_tokenStatus != TokenStatus::None) {
+            _tokenStatus = TokenStatus::None;
+            emit tokenStatusChanged();
+        }
         return false;
     }
 
@@ -158,44 +167,53 @@ bool GeoWork::setBearerTokenFromFile(const QString& fileUrl)
 void GeoWork::validateToken()
 {
     // TODO: Replace with a real server validation endpoint if available.
-    int newStatus = 0; // NoToken
-    if (_bearerToken.isEmpty()) {
-        newStatus = 0;
-    } else if (_bearerToken.startsWith(QStringLiteral("Bearer ")) && _bearerToken.size() > 40) {
-        newStatus = 1; // Valid-ish
+    TokenStatus newStatus; // NoToken
+    if (m_bearerToken.isEmpty()) {
+        newStatus = TokenStatus::None;
+    } else if (m_bearerToken.startsWith(QStringLiteral("Bearer ")) && m_bearerToken.size() > 40) {
+        newStatus = TokenStatus::Valid; // Valid-ish
     } else {
-        newStatus = 2; // Invalid
+        newStatus = TokenStatus::Invalid; // Invalid
     }
+
     if (newStatus != _tokenStatus) {
         _tokenStatus = newStatus;
         emit tokenStatusChanged();
     }
+
     saveSettings();
 }
 
 void GeoWork::saveSettings()
 {
-    _settings.setValue(QStringLiteral("deviceName"),  _deviceName);
-    _settings.setValue(QStringLiteral("bearerToken"), _bearerToken);
-    _settings.setValue(QStringLiteral("tokenStatus"), _tokenStatus);
+    _settings.setValue(QStringLiteral("deviceName"), m_deviceName);
+    _settings.setValue(QStringLiteral("bearerToken"), m_bearerToken);
+    _settings.setValue(QStringLiteral("tokenStatus"), static_cast<int>(_tokenStatus));
     _settings.sync();
 }
 
 void GeoWork::loadSettings()
 {
-    const QString dn = _settings.value(QStringLiteral("deviceName")).toString();
-    const QString tk = _settings.value(QStringLiteral("bearerToken")).toString();
-    const int     st = _settings.value(QStringLiteral("tokenStatus"), 0).toInt();
+    const QString dn {_settings.value(QStringLiteral("deviceName")).toString()};
+    const QString tk {_settings.value(QStringLiteral("bearerToken")).toString()};
+    const int st    {_settings.value(QStringLiteral("tokenStatus"), 0).toInt()};
 
-    bool any = false;
-    if (_deviceName != dn)   { _deviceName = dn;   emit deviceNameChanged();   any = true; }
-    if (_bearerToken != tk)  { _bearerToken = tk;  emit bearerTokenChanged();  any = true; }
+    bool any {false};
+    if (m_deviceName != dn) {
+        m_deviceName = dn;
+        emit deviceNameChanged();
+        any = true;
+    }
+    if (m_bearerToken != tk) {
+        m_bearerToken = tk;
+        emit bearerTokenChanged();
+        any = true;
+    }
     if (_tokenStatus != st)  { _tokenStatus = st;  emit tokenStatusChanged();  any = true; }
 
     if (any) {
-        qInfo() << "[GeoWork] Settings loaded. deviceName=" << _deviceName
-                << " tokenLen=" << _bearerToken.size()
-                << " tokenStatus=" << _tokenStatus;
+        qInfo() << "[GeoWork] Settings loaded. deviceName=" << m_deviceName
+                << " tokenLen=" << m_bearerToken.size() << " tokenStatus=" << _tokenStatus;
     }
 }
 
@@ -204,13 +222,13 @@ void GeoWork::loadSettings()
 void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
 {
     // Cache device name for later use
-    if (_deviceName != stateName) {
-        _deviceName = stateName.trimmed();
+    if (m_deviceName != stateName) {
+        m_deviceName = stateName.trimmed();
         emit deviceNameChanged();
         saveSettings();
     }
 
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[GeoWork] No bearer token set. Open Geowork Settings and load a token file.";
         if (_tokenStatus != 0) { _tokenStatus = 0; emit tokenStatusChanged(); }
         return;
@@ -221,7 +239,7 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
     req.setRawHeader("Authorization", authHeader());
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    QNetworkReply* replySession = _nam.get(req);
+    QNetworkReply *replySession = m_nam.get(req);
 
     connect(replySession, &QNetworkReply::finished, this, [this, replySession]() {
         const QByteArray body = replySession->readAll();
@@ -241,21 +259,21 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
             return;
         }
 
-        const QJsonObject root = doc.object();
-        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
-        const QJsonObject activeTask = data.value(QStringLiteral("activeTask")).toObject();
+        const QJsonObject root {doc.object()};
+        const QJsonObject data {root.value(QStringLiteral("data")).toObject()};
+        const QJsonObject activeTask {data.value(QStringLiteral("activeTask")).toObject()};
 
         if (activeTask.isEmpty()) {
             qInfo() << "[GeoWork] No active task.";
-            _projectId.clear();
+            m_projectId.clear();
             emit projectIdChanged();
         } else {
-            const QString newProjectId = activeTask.value(QStringLiteral("projectId")).toString();
-            if (_projectId != newProjectId) {
-                _projectId = newProjectId;
-                emit projectIdChanged();
-            }
-            qInfo() << "[GeoWork] Active task projectId:" << _projectId;
+                const QString newProjectId {activeTask.value(QStringLiteral("projectId")).toString()};
+                if (m_projectId != newProjectId) {
+                    m_projectId = newProjectId;
+                    emit projectIdChanged();
+                }
+                qInfo() << "[GeoWork] Active task projectId:" << m_projectId;
         }
 
         replySession->deleteLater();
@@ -266,13 +284,13 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
         reqState.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
         QJsonObject payloadState;
-        payloadState.insert(QStringLiteral("name"), _deviceName);
+        payloadState.insert(QStringLiteral("name"), m_deviceName);
 
-        const QByteArray jsonBody = QJsonDocument(payloadState).toJson(QJsonDocument::Compact);
-        QNetworkReply* replyState = _nam.post(reqState, jsonBody);
+        const QByteArray jsonBody {QJsonDocument(payloadState).toJson(QJsonDocument::Compact)};
+        QNetworkReply *replyState{m_nam.post(reqState, jsonBody)};
 
         connect(replyState, &QNetworkReply::finished, this, [this, replyState]() {
-            const QByteArray body2 = replyState->readAll();
+            const QByteArray body2 {replyState->readAll()};
 
             if (replyState->error() != QNetworkReply::NoError) {
                 qWarning() << "[GeoWork] /project-marker-state error:" << replyState->errorString()
@@ -282,28 +300,28 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
             }
 
             QJsonParseError jerr2{};
-            const QJsonDocument doc2 = QJsonDocument::fromJson(body2, &jerr2);
+            const QJsonDocument doc2 {QJsonDocument::fromJson(body2, &jerr2)};
             if (jerr2.error != QJsonParseError::NoError || !doc2.isObject()) {
                 qWarning() << "[GeoWork] /project-marker-state JSON parse error:" << jerr2.errorString();
                 replyState->deleteLater();
                 return;
             }
 
-            const QJsonObject root2 = doc2.object();
-            const QJsonObject data2 = root2.value(QStringLiteral("data")).toObject();
-            const QJsonObject state  = data2.value(QStringLiteral("state")).toObject();
+            const QJsonObject root2 {doc2.object()};
+            const QJsonObject data2 {root2.value(QStringLiteral("data")).toObject()};
+            const QJsonObject state { data2.value(QStringLiteral("state")).toObject()};
 
-            const QString newStateId = state.value(QStringLiteral("id")).toString();
+            const QString newStateId {state.value(QStringLiteral("id")).toString()};
 
-            if (_stateId != newStateId) {
-                _stateId = newStateId;
+            if (m_stateId != newStateId) {
+                m_stateId = newStateId;
                 emit stateIdChanged();
             }
 
-            if (_stateId.isEmpty()) {
+            if (m_stateId.isEmpty()) {
                 qWarning() << "[GeoWork] state.id missing in response";
             } else {
-                qInfo() << "[GeoWork] stateId:" << _stateId;
+                qInfo() << "[GeoWork] stateId:" << m_stateId;
             }
 
             replyState->deleteLater();
@@ -313,17 +331,17 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName)
 
 void GeoWork::createMarker()
 {
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[GeoWork] createMarker(): No bearer token set.";
         return;
     }
-    if (_stateId.isEmpty()) {
+    if (m_stateId.isEmpty()) {
         qWarning() << "[GeoWork] createMarker(): stateId is empty. Run checkActiveTaskAndFetchState() first.";
         return;
     }
 
     double lat = 0.0, lon = 0.0, alt = 0.0;
-    if (!_getActiveVehicleCoordinate(lat, lon, alt)) {
+    if (!getActiveVehicleCoordinate(lat, lon, alt)) {
         qWarning() << "[GeoWork] createMarker(): No valid GPS from active vehicle.";
         return;
     }
@@ -338,15 +356,15 @@ void GeoWork::createMarker()
 
     // Payload
     QJsonObject payload;
-    payload.insert(QStringLiteral("stateId"), _stateId);
+    payload.insert(QStringLiteral("stateId"), m_stateId);
     payload.insert(QStringLiteral("geometry"), geom);
 
-    QNetworkRequest req(QUrl(QString::fromUtf8(kUrlMarker)));
+    QNetworkRequest req{QUrl(QString::fromUtf8(kUrlMarker))};
     req.setRawHeader("Authorization", authHeader());
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    const QByteArray body = QJsonDocument(payload).toJson(QJsonDocument::Compact);
-    QNetworkReply* reply = _nam.post(req, body);
+    const QByteArray body {QJsonDocument(payload).toJson(QJsonDocument::Compact)};
+    QNetworkReply *reply{m_nam.post(req, body)};
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, lat, lon]() {
         const QByteArray resp = reply->readAll();
@@ -359,20 +377,20 @@ void GeoWork::createMarker()
         }
 
         QJsonParseError jerr{};
-        const QJsonDocument doc = QJsonDocument::fromJson(resp, &jerr);
+        const QJsonDocument doc {QJsonDocument::fromJson(resp, &jerr)};
         if (jerr.error != QJsonParseError::NoError || !doc.isObject()) {
             qWarning() << "[GeoWork] /markers/create JSON parse error:" << jerr.errorString();
             reply->deleteLater();
             return;
         }
 
-        const QJsonObject root = doc.object();
-        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
-        const QJsonObject markerObj = data.value(QStringLiteral("marker")).toObject();
-        const QString markerId = markerObj.value(QStringLiteral("id")).toString();
+        const QJsonObject root { doc.object() };
+        const QJsonObject data { root.value(QStringLiteral("data")).toObject() };
+        const QJsonObject markerObj { data.value(QStringLiteral("marker")).toObject() };
+        const QString markerId { markerObj.value(QStringLiteral("id")).toString() };
 
         if (!markerId.isEmpty()) {
-            qInfo() << "[GeoWork] Marker created at" << lat << "," << lon << " id:" << markerId;
+            qInfo() << "[GeoWork] Marker created at" << lat << ',' << lon << " id:" << markerId;
         } else {
             qInfo() << "[GeoWork] Marker created (no id field)";
         }
@@ -380,7 +398,7 @@ void GeoWork::createMarker()
         
         qInfo() << "[geowork] createMarker(): success, calling AddPhoto";
         AddPhotoForMarker(markerId);
-reply->deleteLater();
+    reply->deleteLater();
     });
 }
 
@@ -409,11 +427,12 @@ static QObject* vehicleSubObject(QObject* v, const char* name)
 static std::pair<bool,double> getAnyPressure(QObject* groupObj)
 {
     if (!groupObj) return {false, 0.0};
-    const char* names[] = {"absPressure","absolutePressure","baroPressure","pressure","staticPressure","pressAbs","ambPressure"};
+    const char* names[] {"absPressure","absolutePressure","baroPressure","pressure","staticPressure","pressAbs","ambPressure"};
     for (const char* n : names) {
-        auto res = getFactRawDouble(groupObj, n);
+        const auto res = getFactRawDouble(groupObj, n);
         if (res.first) return res;
     }
+
     return {false, 0.0};
 }
 
@@ -421,15 +440,15 @@ static QVector<QObject*> collectBatteryGroups(QObject* vehicle)
 {
     QVector<QObject*> out;
     if (!vehicle) return out;
-    const char* names[] = {"battery","battery1","battery2","battery3"};
-    for (const char* n : names) {
-        QVariant v = vehicle->property(n);
+    const char* names[] {"battery","battery1","battery2","battery3"};
+    for (const char* const n : names) {
+        QVariant v {vehicle->property(n)};
         if (v.isValid()) {
-            if (QObject* o = v.value<QObject*>()) out.append(o);
+            if (QObject* o {v.value<QObject*>()}) out.append(o);
         }
     }
     // Also try "batteries" list model, if present
-    QVariant lstVar = vehicle->property("batteries");
+    QVariant lstVar {vehicle->property("batteries")};
     if (lstVar.isValid()) {
         if (QObject* listObj = lstVar.value<QObject*>()) {
             const auto children = listObj->findChildren<QObject*>(QString(), Qt::FindDirectChildrenOnly);
@@ -446,7 +465,7 @@ static QVector<QObject*> collectBatteryGroups(QObject* vehicle)
 void GeoWork::reportLocation()
 {
     // --- Guards ---
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[GeoWork] reportLocation(): No bearer token set.";
         return;
     }
@@ -631,12 +650,12 @@ void GeoWork::reportLocation()
     };
 
     // --- POST it ---
-    QNetworkRequest req(QUrl(QString::fromUtf8(kUrlReportLocation)));
+    QNetworkRequest req{QUrl(QString::fromUtf8(kUrlReportLocation))};
     req.setRawHeader("Authorization", authHeader()); // "Bearer …"
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
     const QByteArray jsonBody = QJsonDocument(payload).toJson(QJsonDocument::Compact);
-    QNetworkReply* nrep = _nam.post(req, jsonBody);
+    QNetworkReply *nrep = m_nam.post(req, jsonBody);
 
     connect(nrep, &QNetworkReply::finished, this, [nrep]() {
         const QByteArray r = nrep->readAll();
@@ -655,7 +674,7 @@ void GeoWork::reportLocation()
 // ======== Minimal additions: frame capture to Downloads ========
 void GeoWork::setVideoItem(QObject* videoItem)
 {
-    _videoItemObj = videoItem;
+    m_videoItemObj = videoItem;
     qInfo() << "[geowork] setVideoItem:" << videoItem;
 }
 
@@ -667,13 +686,13 @@ void GeoWork::AddPhoto()
         QMetaObject::invokeMethod(this, &GeoWork::AddPhoto, Qt::QueuedConnection);
         return;
     }
-    _captureAndSave();
+    captureAndSave();
 }
 
-void GeoWork::_captureAndSave()
+void GeoWork::captureAndSave()
 {
     qInfo() << "[geowork] _captureAndSave(): begin";
-    QQuickItem* item = qobject_cast<QQuickItem*>(_videoItemObj);
+    QQuickItem *item = qobject_cast<QQuickItem *>(m_videoItemObj);
     if (!item) {
         qWarning() << "[geowork] AddPhoto: video item not set"; emit photoSaveFailed(QStringLiteral("Video item not set. Call setVideoItem(...) first."));
         return;
@@ -701,6 +720,7 @@ void GeoWork::_captureAndSave()
                 downloads = QDir::homePath();
             }
         }
+
         QDir().mkpath(downloads);
 
         const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmsszzz");
@@ -724,13 +744,13 @@ void GeoWork::autoBindVideo()
     qInfo() << "[geowork] autoBindVideo(): start";
     const auto wins = QGuiApplication::allWindows();
     for (QWindow* w : wins) {
-        QQuickWindow* qw = qobject_cast<QQuickWindow*>(w);
+        QQuickWindow *qw{qobject_cast<QQuickWindow *>(w)};
         if (!qw) continue;
-        QQuickItem* root = qw->contentItem();
+        QQuickItem *root = {qw->contentItem()};
         if (!root) continue;
-        QQuickItem* hit = _findVideoItemRecursive(root);
+        QQuickItem *hit{findVideoItemRecursive(root)};
         if (hit) {
-            _videoItemObj = hit;
+            m_videoItemObj = hit;
             qInfo() << "[geowork] autoBindVideo(): found item" << hit << "objectName=" << hit->objectName()
                     << "class=" << hit->metaObject()->className();
             return;
@@ -739,7 +759,7 @@ void GeoWork::autoBindVideo()
     qWarning() << "[geowork] autoBindVideo(): no video item found";
 }
 
-QQuickItem* GeoWork::_findVideoItemRecursive(QQuickItem* item) const
+QQuickItem *GeoWork::findVideoItemRecursive(QQuickItem *item) const
 {
     if (!item) return nullptr;
     const QByteArray cname = item->metaObject()->className();
@@ -753,7 +773,8 @@ QQuickItem* GeoWork::_findVideoItemRecursive(QQuickItem* item) const
     }
     const auto children = item->childItems();
     for (QQuickItem* c : children) {
-        if (QQuickItem* r = _findVideoItemRecursive(c)) return r;
+        if (QQuickItem *r = findVideoItemRecursive(c))
+            return r;
     }
     return nullptr;
 }
@@ -771,76 +792,81 @@ void GeoWork::AddPhotoForMarker(const QString& markerId)
         return;
     }
 
-    QQuickItem* item = qobject_cast<QQuickItem*>(_videoItemObj);
+    QQuickItem *item{qobject_cast<QQuickItem *>(m_videoItemObj)};
     if (!item) {
         qWarning() << "[geowork] AddPhotoForMarker(): video item not set";
         return;
     }
 
-    auto grab = item->grabToImage();
+    auto grab{item->grabToImage()};
     if (!grab) {
         qWarning() << "[geowork] AddPhotoForMarker(): grabToImage returned null";
         return;
     }
 
     QObject::connect(grab.data(), &QQuickItemGrabResult::ready, this, [this, markerId, grab]() {
-        const QImage img = grab->image();
+        const QImage img{grab->image()};
         if (img.isNull()) {
             qWarning() << "[geowork] AddPhotoForMarker(): captured image is null";
             return;
         }
 
         // Save to Downloads as before (user requirement)
-        QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+        QString downloads{QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)};
         if (downloads.isEmpty()) {
             downloads = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
-            if (downloads.isEmpty()) downloads = QDir::homePath();
+            if (downloads.isEmpty())
+                downloads = QDir::homePath();
         }
-        QDir().mkpath(downloads);
-        const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmsszzz");
-        const QString filePath = downloads + QStringLiteral("/GeoWork_%1.jpg").arg(ts);
-        QImageWriter writer(filePath.toUtf8(), "jpeg");
+
+        QDir{}.mkpath(downloads);
+
+        const QString ts {QDateTime::currentDateTime().toString("yyyyMMdd_hhmmsszzz")};
+        const QString filePath {downloads + QStringLiteral("/GeoWork_%1.jpg").arg(ts)};
+
+        QImageWriter writer{filePath.toUtf8(), "jpeg"};
         writer.setQuality(90);
+
         if (!writer.write(img)) {
             qWarning() << "[geowork] AddPhotoForMarker(): failed to write jpg:" << writer.errorString();
             return;
         }
+
         qInfo() << "[geowork] Saved frame to" << filePath;
 
         // Then upload it to marker (like Python)
-        _uploadPhotoToMarker(markerId, filePath);
+        uploadPhotoToMarker(markerId, filePath);
     });
 }
 
-
-void GeoWork::_uploadPhotoToMarker(const QString& markerId, const QString& photoPath)
+void GeoWork::uploadPhotoToMarker(const QString &markerId, const QString &photoPath)
 {
-    if (_bearerToken.isEmpty()) {
+    if (m_bearerToken.isEmpty()) {
         qWarning() << "[geowork] _uploadPhotoToMarker(): No bearer token set";
         return;
     }
 
-    QFileInfo fi(photoPath);
+    QFileInfo fi{photoPath};
     if (!fi.exists() || !fi.isFile()) {
-        qWarning() << "[geowork] _uploadPhotoToMarker(): file missing" << photoPath;
+        qWarning() << "[geowork] _uploadPhotoToMarker(): file missing:" << photoPath;
         return;
     }
 
     // No recompress: send the captured file as-is
-    QString pathToUpload = photoPath;
+    QString pathToUpload {photoPath};
 
     // Build URL: .../vehicles-reporting/markers/add-image?marker=<id>
-    const char* kUrlAddImage = "https://api.geowork.mobis1.com/vehicles-reporting/markers/add-image";
-    QUrl url(QString::fromUtf8(kUrlAddImage));
+    const char* kUrlAddImage {"https://api.geowork.mobis1.com/vehicles-reporting/markers/add-image"};
+    QUrl url{QString::fromUtf8(kUrlAddImage)};
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("marker"), markerId);
     url.setQuery(q);
 
-    QNetworkRequest req(url);
+    QNetworkRequest req{url};
     req.setRawHeader("Authorization", authHeader());
     // No Content-Type header here; QHttpMultiPart sets it with the boundary
 
-    QFile* file = new QFile(pathToUpload, this);
+    QFile* file {new QFile(pathToUpload, this)};
     if (!file->open(QIODevice::ReadOnly)) {
         qWarning() << "[geowork] _uploadPhotoToMarker(): cannot open" << pathToUpload;
         file->deleteLater();
@@ -850,21 +876,22 @@ void GeoWork::_uploadPhotoToMarker(const QString& markerId, const QString& photo
     QHttpMultiPart* multi = new QHttpMultiPart(QHttpMultiPart::FormDataType, this);
     QHttpPart filePart;
     filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
-                       QVariant(QStringLiteral("form-data; name=\"file\"; filename=\"%1\"").arg(fi.fileName())));
-    filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QStringLiteral("image/jpeg")));
+                       QStringLiteral("form-data; name=\"file\"; filename=\"%1\"").arg(fi.fileName()));
+    filePart.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("image/jpeg"));
     filePart.setBodyDevice(file);
     file->setParent(multi);
     multi->append(filePart);
 
-    qInfo() << "[geowork] POST" << url.toString() << "file=" << fi.fileName();
-    QNetworkReply* reply = _nam.post(req, multi);
+    qInfo() << "[geowork] POST " << url.toString() << "file=" << fi.fileName();
+
+    QNetworkReply *reply{m_nam.post(req, multi)};
     multi->setParent(reply);
     reply->setProperty("gw_markerId", markerId);
     reply->setProperty("gw_photoPath", photoPath);
 
     connect(reply, &QNetworkReply::finished, this, [reply]() {
-        const QString markerId = reply->property("gw_markerId").toString();
-        const QString photoPath = reply->property("gw_photoPath").toString();
+        const QString markerId {reply->property("gw_markerId").toString()};
+        const QString photoPath {reply->property("gw_photoPath").toString()};
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "[geowork] /markers/add-image error:" << reply->errorString() << "markerId=" << markerId;
         } else {
