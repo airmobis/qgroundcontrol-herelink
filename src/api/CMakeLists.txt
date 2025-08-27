@@ -1,15 +1,13 @@
+cmake_minimum_required(VERSION 3.10)
+
+project(SrcApi LANGUAGES CXX)
 
 add_library(api
-	QGCCorePlugin.cc
-	QGCOptions.cc
-	QGCSettings.cc
-	QmlComponentInfo.cc
+ src/QGCCorePlugin.cc
+ src/QGCOptions.cc
+ src/QGCSettings.cc
+ src/QmlComponentInfo.cc
 )
 
-target_link_libraries(api
-	PUBLIC
-		qgc
-)
-
-target_include_directories(api PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
+target_link_libraries(api PUBLIC qgc)
+target_include_directories(api PUBLIC include)
