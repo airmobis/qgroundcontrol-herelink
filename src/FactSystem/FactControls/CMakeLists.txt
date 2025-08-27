@@ -1,20 +1,27 @@
 add_library(FactControls
-    FactPanelController.cc
+    src/FactPanelController.cc
 )
 
-add_custom_target(FactControlsQml
-	SOURCES
-		FactPanelController.h
-		AltitudeFactTextField.qml
-		FactBitmask.qml
-		FactCheckBox.qml
-		FactComboBox.qml
-		FactLabel.qml
-		FactTextFieldGrid.qml
-		FactTextField.qml
-		FactTextFieldRow.qml
-		FactTextFieldSlider.qml
-		FactValueSlider.qml
+target_link_libraries(FactControls
+    PUBLIC
+        qgc
 )
 
-target_link_libraries(FactControls qgc)
+target_include_directories(FactControls
+    PUBLIC
+        include
+)
+
+add_custom_target(FactControlsQml SOURCES
+    include/FactPanelController.h # FIXME Why is this here?
+    res/AltitudeFactTextField.qml
+    res/FactBitmask.qml
+    res/FactCheckBox.qml
+    res/FactComboBox.qml
+    res/FactLabel.qml
+    res/FactTextFieldGrid.qml
+    res/FactTextField.qml
+    res/FactTextFieldRow.qml
+    res/FactTextFieldSlider.qml
+    res/FactValueSlider.qml
+)

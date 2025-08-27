@@ -1,50 +1,37 @@
-
 add_subdirectory(FactControls)
 
-set(EXTRA_SRC)
-if(BUILD_TESTING)
-	list(APPEND EXTRA_SRC
-		FactSystemTestBase.cc
-		FactSystemTestBase.h
-		FactSystemTestGeneric.cc
-		FactSystemTestGeneric.h
-		FactSystemTestPX4.cc
-		FactSystemTestPX4.h
-		ParameterManagerTest.cc
-		ParameterManagerTest.h
-	)
+if (BUILD_TESTING)
+    set(EXTRA_SRC
+        FactSystemTestBase.cc
+        FactSystemTestGeneric.cc
+        FactSystemTestPX4.cc
+        ParameterManagerTest.cc
+    )
 endif()
 
 add_library(FactSystem
-	Fact.cc
-	FactGroup.cc
-	FactGroup.h
-	Fact.h
-	FactMetaData.cc
-	FactMetaData.h
-	FactSystem.cc
-	FactSystem.h
-	FactValueSliderListModel.cc
-	FactValueSliderListModel.h
-	ParameterManager.cc
-	ParameterManager.h
-	SettingsFact.cc
-	SettingsFact.h
+ src/Fact.cc
+ src/FactGroup.cc
+ src/FactMetaData.cc
+ src/FactSystem.cc
+ src/FactValueSliderListModel.cc
+ src/ParameterManager.cc
+ src/SettingsFact.cc
 
-	FactSystemTest.qml
+ res/FactSystemTest.qml
 
-	${EXTRA_SRC}
+ ${EXTRA_SRC}
 )
 
 target_link_libraries(FactSystem
-	PRIVATE
-		qgc
-		FactControls
+    PRIVATE
+        qgc
+
+    PUBLIC
+        FactControls
 )
 
 target_include_directories(FactSystem
-	INTERFACE
-		${CMAKE_CURRENT_SOURCE_DIR}
-	PUBLIC
-		FactControls
+    PUBLIC
+        include
 )
