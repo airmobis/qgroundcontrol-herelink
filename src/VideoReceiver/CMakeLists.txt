@@ -3,14 +3,14 @@ set(EXTRA_LIBRARIES)
 
 if (GST_FOUND)
     set(EXTRA_SOURCES
-    	gstqgc.c
-    	gstqgcvideosinkbin.c
-    	GStreamer.cc
-    	GStreamer.h
-    	GstVideoReceiver.cc
-    	GstVideoReceiver.h
+     gstqgc.c
+     gstqgcvideosinkbin.c
+     GStreamer.cc
+     GStreamer.h
+     GstVideoReceiver.cc
+     GstVideoReceiver.h
     )
-   
+
     set(EXTRA_LIBRARIES qmlglsink ${GST_LINK_LIBRARIES})
 endif()
 
@@ -18,6 +18,10 @@ add_library(VideoReceiver
     ${EXTRA_SOURCES}
     VideoReceiver.h
 )
+
+find_package(Qt5Multimedia REQUIRED)
+find_package(Qt5OpenGL REQUIRED)
+find_package(Qt5Quick REQUIRED)
 
 target_link_libraries(VideoReceiver
     PUBLIC
@@ -30,5 +34,5 @@ target_link_libraries(VideoReceiver
 
 target_include_directories(VideoReceiver INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 if (GST_FOUND)
-	target_include_directories(VideoReceiver PUBLIC ${GST_INCLUDE_DIRS})
+    target_include_directories(VideoReceiver PUBLIC ${GST_INCLUDE_DIRS})
 endif()

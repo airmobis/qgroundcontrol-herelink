@@ -1,8 +1,8 @@
 #include <QDebug>
 
-#include "../include/VideoStreamControl.h"
 #include "LinkInterface.h"
 #include "QGCApplication.h"
+#include <VideoStreamControl.h>
 
 QGC_LOGGING_CATEGORY(VideoStreamControlLog, "VideoStreamControlLog")
 

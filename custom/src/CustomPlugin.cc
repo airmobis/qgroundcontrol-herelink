@@ -1,4 +1,4 @@
-#include "../include/CustomPlugin.h"
+#include <CustomPlugin.h>
 #include <QDebug>
 
 CustomPlugin::CustomPlugin(QGCApplication* app, QGCToolbox* toolbox)

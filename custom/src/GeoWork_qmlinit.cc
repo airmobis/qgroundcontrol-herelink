@@ -1,4 +1,4 @@
-#include "../include/GeoWork.h"
+#include <GeoWork.h>
 #include <QDebug>
 #include <QtQml>
 

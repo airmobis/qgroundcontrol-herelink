@@ -1,5 +1,6 @@
 #pragma once
 #include "QGCCorePlugin.h"
+#include <QObject>
 
 class CustomPlugin : public QGCCorePlugin {
     Q_OBJECT

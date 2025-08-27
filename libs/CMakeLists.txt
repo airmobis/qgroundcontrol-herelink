@@ -1,6 +1,8 @@
 add_subdirectory(libevents)
+add_subdirectory(mavlink)
 add_subdirectory(qtandroidserialport)
 add_subdirectory(shapelib)
+
 if (WIN32)
     add_subdirectory(sdl2)
     add_subdirectory(zlib)
@@ -10,4 +12,5 @@ if (GST_FOUND)
 endif()
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Force qmdnsengine to build as static" FORCE)
+
 add_subdirectory(qmdnsengine)

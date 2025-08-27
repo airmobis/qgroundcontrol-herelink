@@ -1,4 +1,4 @@
-#include "../include/HerelinkCorePlugin.h"
+#include <HerelinkCorePlugin.h>
 
 #include "AppSettings.h"
 #include "AutoConnectSettings.h"

@@ -1,4 +1,4 @@
-#include "../include/GeoWork.h"
+#include <GeoWork.h>
 #include <QHttpMultiPart>
 #include <QHttpPart>
 #include <QImageReader>

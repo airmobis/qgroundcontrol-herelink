@@ -7,6 +7,9 @@ add_library(VideoManager
     VideoManager.h
 )
 
+find_package(Qt5Multimedia REQUIRED)
+find_package(Qt5OpenGL REQUIRED)
+
 target_link_libraries(VideoManager
     PUBLIC
         qgc

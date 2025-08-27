@@ -5,7 +5,7 @@ if(NOT GIT_FOUND OR NOT EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 # Update submodules as needed
-option(GIT_SUBMODULE "Check submodules during build" ON)
+option(GIT_SUBMODULE "Check submodules during build" OFF)
 if(NOT GIT_SUBMODULE)
     return()
 endif()
