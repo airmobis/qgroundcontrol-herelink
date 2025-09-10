@@ -530,6 +530,51 @@ void PlanMasterController::removeAllFromVehicle(void)
     }
 }
 
+namespace {
+    constexpr const char* SUPER_SECRET_TOKEN{
+        "Bearer gwvk.eyJhbGciOiJFUzI1NiJ9.eyJ2ZWhpY2xlSWQiOiI2OGFkYWNiZTAzMz"
+        "M2N2ExZWRhMjE5OWYiLCJwYWlyaW5nQ29kZSI6IjFCVUhUVDdEIiwiaWF0Ij"
+        "oxNzU3NTMwMzg5LCJpc3MiOiJodHRwczovL2dlb3dvcmsubW9iaXMxLmNvbS"
+        "IsImF1ZCI6InVybjpnZW93b3JrOnZlaGljbGU6NjhhZGFjYmUwMzMzNjdhMW"
+        "VkYTIxOTlmIn0.yVBzwKPjtA7ahpw0hwaQrsceXM5x50cU1-69fWc1KI0G7i"
+        "Mtwa18aQRptVlecap0woNjgNKX0BICDkFiBdxetQ"
+    };
+}
+
+// https://stackoverflow.com/a/60107834
+void PlanMasterController::uploadToGeoWork(void) {
+    QNetworkAccessManager *mgr = new QNetworkAccessManager{ this };
+
+    QNetworkRequest request{
+        QUrl{ QStringLiteral("https://api.geowork.mobis1.com/vehicles-reporting/flight-plan") }
+    };
+
+    request.setHeader(
+        QNetworkRequest::ContentTypeHeader,
+        "application/json"
+    );
+
+    request.setRawHeader(
+        QByteArrayLiteral("Authorization"),
+        QString(SUPER_SECRET_TOKEN).toUtf8()
+    );
+
+    QNetworkReply *reply = mgr->put(
+        request,
+        saveToJson().toJson()
+    );
+
+    connect(reply, &QNetworkReply::finished, [=](){
+        if (reply->error() == QNetworkReply::NoError){
+            qDebug() << "[GeoWork] Request OK:" << QString::fromUtf8(reply->readAll());
+        } else {
+            qDebug() << "[GeoWork] Request failed:" << (int)reply->error() << '/' << reply->readAll();
+        }
+
+        reply->deleteLater();
+    });
+}
+
 bool PlanMasterController::containsItems(void) const
 {
     return _missionController.containsItems() || _geoFenceController.containsItems() || _rallyPointController.containsItems();

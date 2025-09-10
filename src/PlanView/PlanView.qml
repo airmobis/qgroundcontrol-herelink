@@ -1005,6 +1005,17 @@ Item {
                         _planMasterController.saveKmlToSelectedFile()
                     }
                 }
+
+                QGCButton {
+                    Layout.columnSpan:  3
+                    Layout.fillWidth:   true
+                    text:               "Upload to GeoWork"
+                    enabled:            !_planMasterController.syncInProgress && _visualItems.count > 1
+                    onClicked: {
+                        dropPanel.hide()
+                        _planMasterController.uploadToGeoWork()
+                    }
+                }
             }
 
             SectionHeader {
