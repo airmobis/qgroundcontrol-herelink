@@ -74,8 +74,6 @@ Item {
         }
     }
 
-    Rectangle { x: 8; y: 8; width: 20; height: 20; color: "red" }
-
     // ---- Loader (required) – settings panel is loaded by qrc path ----
     Loader {
         id: geoPanel
@@ -231,7 +229,7 @@ Item {
     Timer {
         id: geoworkHeartbeat
         interval: 3000; running: true; repeat: true
-        onTriggered: console.log("[geowork][qml] heartbeat; has GeoWork:", typeof GeoWork !== 'undefined')
+        // onTriggered: console.log("[geowork][qml] heartbeat; has GeoWork:", typeof GeoWork !== 'undefined')
     }
 
 }

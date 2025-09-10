@@ -8,86 +8,79 @@
  ****************************************************************************/
 
 #include "PlanMasterController.h"
+#include "AppSettings.h"
+#include "BlankPlanCreator.h"
+#include "CorridorScanPlanCreator.h"
+#include "JsonHelper.h"
+#include "KMLPlanDomDocument.h"
+#include "MissionManager.h"
+#include "MultiVehicleManager.h"
 #include "QGCApplication.h"
 #include "QGCCorePlugin.h"
-#include "MultiVehicleManager.h"
 #include "SettingsManager.h"
-#include "AppSettings.h"
-#include "JsonHelper.h"
-#include "MissionManager.h"
-#include "KMLPlanDomDocument.h"
-#include "SurveyPlanCreator.h"
 #include "StructureScanPlanCreator.h"
-#include "CorridorScanPlanCreator.h"
-#include "BlankPlanCreator.h"
+#include "SurveyPlanCreator.h"
 
 #include <QDomDocument>
-#include <QJsonDocument>
 #include <QFileInfo>
+#include <QJsonDocument>
 
 QGC_LOGGING_CATEGORY(PlanMasterControllerLog, "PlanMasterControllerLog")
 
-const int   PlanMasterController::kPlanFileVersion =            1;
-const char* PlanMasterController::kPlanFileType =               "Plan";
-const char* PlanMasterController::kJsonMissionObjectKey =       "mission";
-const char* PlanMasterController::kJsonGeoFenceObjectKey =      "geoFence";
-const char* PlanMasterController::kJsonRallyPointsObjectKey =   "rallyPoints";
+const int   PlanMasterController::kPlanFileVersion          = 1;
+const char* PlanMasterController::kPlanFileType             = "Plan";
+const char* PlanMasterController::kJsonMissionObjectKey     = "mission";
+const char* PlanMasterController::kJsonGeoFenceObjectKey    = "geoFence";
+const char* PlanMasterController::kJsonRallyPointsObjectKey = "rallyPoints";
 
 PlanMasterController::PlanMasterController(QObject* parent)
-    : QObject               (parent)
-    , _multiVehicleMgr      (qgcApp()->toolbox()->multiVehicleManager())
-    , _controllerVehicle    (new Vehicle(Vehicle::MAV_AUTOPILOT_TRACK, Vehicle::MAV_TYPE_TRACK, qgcApp()->toolbox()->firmwarePluginManager(), this))
-    , _managerVehicle       (_controllerVehicle)
-    , _missionController    (this)
-    , _geoFenceController   (this)
-    , _rallyPointController (this)
-{
+    : QObject(parent)
+    , _multiVehicleMgr(qgcApp()->toolbox()->multiVehicleManager())
+    , _controllerVehicle(new Vehicle(Vehicle::MAV_AUTOPILOT_TRACK, Vehicle::MAV_TYPE_TRACK, qgcApp()->toolbox()->firmwarePluginManager(), this))
+    , _managerVehicle(_controllerVehicle)
+    , _missionController(this)
+    , _geoFenceController(this)
+    , _rallyPointController(this) {
     _commonInit();
 }
 
 #ifdef QT_DEBUG
 PlanMasterController::PlanMasterController(MAV_AUTOPILOT firmwareType, MAV_TYPE vehicleType, QObject* parent)
-    : QObject               (parent)
-    , _multiVehicleMgr      (qgcApp()->toolbox()->multiVehicleManager())
-    , _controllerVehicle    (new Vehicle(firmwareType, vehicleType, qgcApp()->toolbox()->firmwarePluginManager()))
-    , _managerVehicle       (_controllerVehicle)
-    , _missionController    (this)
-    , _geoFenceController   (this)
-    , _rallyPointController (this)
-{
+    : QObject(parent)
+    , _multiVehicleMgr(qgcApp()->toolbox()->multiVehicleManager())
+    , _controllerVehicle(new Vehicle(firmwareType, vehicleType, qgcApp()->toolbox()->firmwarePluginManager()))
+    , _managerVehicle(_controllerVehicle)
+    , _missionController(this)
+    , _geoFenceController(this)
+    , _rallyPointController(this) {
     _commonInit();
 }
 #endif
 
-void PlanMasterController::_commonInit(void)
-{
-    connect(&_missionController,    &MissionController::dirtyChanged,               this, &PlanMasterController::dirtyChanged);
-    connect(&_geoFenceController,   &GeoFenceController::dirtyChanged,              this, &PlanMasterController::dirtyChanged);
-    connect(&_rallyPointController, &RallyPointController::dirtyChanged,            this, &PlanMasterController::dirtyChanged);
+void PlanMasterController::_commonInit(void) {
+    connect(&_missionController, &MissionController::dirtyChanged, this, &PlanMasterController::dirtyChanged);
+    connect(&_geoFenceController, &GeoFenceController::dirtyChanged, this, &PlanMasterController::dirtyChanged);
+    connect(&_rallyPointController, &RallyPointController::dirtyChanged, this, &PlanMasterController::dirtyChanged);
 
-    connect(&_missionController,    &MissionController::containsItemsChanged,       this, &PlanMasterController::containsItemsChanged);
-    connect(&_geoFenceController,   &GeoFenceController::containsItemsChanged,      this, &PlanMasterController::containsItemsChanged);
-    connect(&_rallyPointController, &RallyPointController::containsItemsChanged,    this, &PlanMasterController::containsItemsChanged);
+    connect(&_missionController, &MissionController::containsItemsChanged, this, &PlanMasterController::containsItemsChanged);
+    connect(&_geoFenceController, &GeoFenceController::containsItemsChanged, this, &PlanMasterController::containsItemsChanged);
+    connect(&_rallyPointController, &RallyPointController::containsItemsChanged, this, &PlanMasterController::containsItemsChanged);
 
-    connect(&_missionController,    &MissionController::syncInProgressChanged,      this, &PlanMasterController::syncInProgressChanged);
-    connect(&_geoFenceController,   &GeoFenceController::syncInProgressChanged,     this, &PlanMasterController::syncInProgressChanged);
-    connect(&_rallyPointController, &RallyPointController::syncInProgressChanged,   this, &PlanMasterController::syncInProgressChanged);
+    connect(&_missionController, &MissionController::syncInProgressChanged, this, &PlanMasterController::syncInProgressChanged);
+    connect(&_geoFenceController, &GeoFenceController::syncInProgressChanged, this, &PlanMasterController::syncInProgressChanged);
+    connect(&_rallyPointController, &RallyPointController::syncInProgressChanged, this, &PlanMasterController::syncInProgressChanged);
 
     // Offline vehicle can change firmware/vehicle type
-    connect(_controllerVehicle,     &Vehicle::vehicleTypeChanged,                   this, &PlanMasterController::_updatePlanCreatorsList);
+    connect(_controllerVehicle, &Vehicle::vehicleTypeChanged, this, &PlanMasterController::_updatePlanCreatorsList);
 }
 
-
-PlanMasterController::~PlanMasterController()
-{
-
+PlanMasterController::~PlanMasterController() {
 }
 
-void PlanMasterController::start(void)
-{
-    _missionController.start    (_flyView);
-    _geoFenceController.start   (_flyView);
-    _rallyPointController.start (_flyView);
+void PlanMasterController::start(void) {
+    _missionController.start(_flyView);
+    _geoFenceController.start(_flyView);
+    _rallyPointController.start(_flyView);
 
     _activeVehicleChanged(_multiVehicleMgr->activeVehicle());
     connect(_multiVehicleMgr, &MultiVehicleManager::activeVehicleChanged, this, &PlanMasterController::_activeVehicleChanged);
@@ -95,9 +88,8 @@ void PlanMasterController::start(void)
     _updatePlanCreatorsList();
 }
 
-void PlanMasterController::startStaticActiveVehicle(Vehicle* vehicle, bool deleteWhenSendCompleted)
-{
-    _flyView = true;
+void PlanMasterController::startStaticActiveVehicle(Vehicle* vehicle, bool deleteWhenSendCompleted) {
+    _flyView                 = true;
     _deleteWhenSendCompleted = deleteWhenSendCompleted;
     _missionController.start(_flyView);
     _geoFenceController.start(_flyView);
@@ -105,8 +97,7 @@ void PlanMasterController::startStaticActiveVehicle(Vehicle* vehicle, bool delet
     _activeVehicleChanged(vehicle);
 }
 
-void PlanMasterController::_activeVehicleChanged(Vehicle* activeVehicle)
-{
+void PlanMasterController::_activeVehicleChanged(Vehicle* activeVehicle) {
     if (_managerVehicle == activeVehicle) {
         // We are already setup for this vehicle
         return;
@@ -116,18 +107,18 @@ void PlanMasterController::_activeVehicleChanged(Vehicle* activeVehicle)
 
     if (_managerVehicle) {
         // Disconnect old vehicle. Be careful of wildcarding disconnect too much since _managerVehicle may equal _controllerVehicle
-        disconnect(_managerVehicle->missionManager(),       nullptr, this, nullptr);
-        disconnect(_managerVehicle->geoFenceManager(),      nullptr, this, nullptr);
-        disconnect(_managerVehicle->rallyPointManager(),    nullptr, this, nullptr);
+        disconnect(_managerVehicle->missionManager(), nullptr, this, nullptr);
+        disconnect(_managerVehicle->geoFenceManager(), nullptr, this, nullptr);
+        disconnect(_managerVehicle->rallyPointManager(), nullptr, this, nullptr);
     }
 
     bool newOffline = false;
     if (activeVehicle == nullptr) {
         // Since there is no longer an active vehicle we use the offline controller vehicle as the manager vehicle
         _managerVehicle = _controllerVehicle;
-        newOffline = true;
+        newOffline      = true;
     } else {
-        newOffline = false;
+        newOffline      = false;
         _managerVehicle = activeVehicle;
 
         // Update controllerVehicle to the currently connected vehicle
@@ -136,12 +127,12 @@ void PlanMasterController::_activeVehicleChanged(Vehicle* activeVehicle)
         appSettings->offlineEditingVehicleClass()->setRawValue(QGCMAVLink::vehicleClass(_managerVehicle->vehicleType()));
 
         // We use these signals to sequence upload and download to the multiple controller/managers
-        connect(_managerVehicle->missionManager(),      &MissionManager::newMissionItemsAvailable,  this, &PlanMasterController::_loadMissionComplete);
-        connect(_managerVehicle->geoFenceManager(),     &GeoFenceManager::loadComplete,             this, &PlanMasterController::_loadGeoFenceComplete);
-        connect(_managerVehicle->rallyPointManager(),   &RallyPointManager::loadComplete,           this, &PlanMasterController::_loadRallyPointsComplete);
-        connect(_managerVehicle->missionManager(),      &MissionManager::sendComplete,              this, &PlanMasterController::_sendMissionComplete);
-        connect(_managerVehicle->geoFenceManager(),     &GeoFenceManager::sendComplete,             this, &PlanMasterController::_sendGeoFenceComplete);
-        connect(_managerVehicle->rallyPointManager(),   &RallyPointManager::sendComplete,           this, &PlanMasterController::_sendRallyPointsComplete);
+        connect(_managerVehicle->missionManager(), &MissionManager::newMissionItemsAvailable, this, &PlanMasterController::_loadMissionComplete);
+        connect(_managerVehicle->geoFenceManager(), &GeoFenceManager::loadComplete, this, &PlanMasterController::_loadGeoFenceComplete);
+        connect(_managerVehicle->rallyPointManager(), &RallyPointManager::loadComplete, this, &PlanMasterController::_loadRallyPointsComplete);
+        connect(_managerVehicle->missionManager(), &MissionManager::sendComplete, this, &PlanMasterController::_sendMissionComplete);
+        connect(_managerVehicle->geoFenceManager(), &GeoFenceManager::sendComplete, this, &PlanMasterController::_sendGeoFenceComplete);
+        connect(_managerVehicle->rallyPointManager(), &RallyPointManager::sendComplete, this, &PlanMasterController::_sendRallyPointsComplete);
     }
 
     _offline = newOffline;
@@ -200,8 +191,7 @@ void PlanMasterController::_activeVehicleChanged(Vehicle* activeVehicle)
     _updatePlanCreatorsList();
 }
 
-void PlanMasterController::loadFromVehicle(void)
-{
+void PlanMasterController::loadFromVehicle(void) {
     WeakLinkInterfacePtr weakLink = _managerVehicle->vehicleLinkManager()->primaryLink();
     if (weakLink.expired()) {
         // Vehicle is shutting down
@@ -228,11 +218,9 @@ void PlanMasterController::loadFromVehicle(void)
     }
 }
 
-
-void PlanMasterController::_loadMissionComplete(void)
-{
+void PlanMasterController::_loadMissionComplete(void) {
     if (!_flyView && _loadGeoFence) {
-        _loadGeoFence = false;
+        _loadGeoFence    = false;
         _loadRallyPoints = true;
         if (_geoFenceController.supported()) {
             qCDebug(PlanMasterControllerLog) << "PlanMasterController::_loadMissionComplete calling _geoFenceController.loadFromVehicle";
@@ -246,8 +234,7 @@ void PlanMasterController::_loadMissionComplete(void)
     }
 }
 
-void PlanMasterController::_loadGeoFenceComplete(void)
-{
+void PlanMasterController::_loadGeoFenceComplete(void) {
     if (!_flyView && _loadRallyPoints) {
         _loadRallyPoints = false;
         if (_rallyPointController.supported()) {
@@ -262,15 +249,13 @@ void PlanMasterController::_loadGeoFenceComplete(void)
     }
 }
 
-void PlanMasterController::_loadRallyPointsComplete(void)
-{
+void PlanMasterController::_loadRallyPointsComplete(void) {
     qCDebug(PlanMasterControllerLog) << "PlanMasterController::_loadRallyPointsComplete";
 }
 
-void PlanMasterController::_sendMissionComplete(void)
-{
+void PlanMasterController::_sendMissionComplete(void) {
     if (_sendGeoFence) {
-        _sendGeoFence = false;
+        _sendGeoFence    = false;
         _sendRallyPoints = true;
         if (_geoFenceController.supported()) {
             qCDebug(PlanMasterControllerLog) << "PlanMasterController::sendToVehicle start GeoFence sendToVehicle";
@@ -283,8 +268,7 @@ void PlanMasterController::_sendMissionComplete(void)
     }
 }
 
-void PlanMasterController::_sendGeoFenceComplete(void)
-{
+void PlanMasterController::_sendGeoFenceComplete(void) {
     if (_sendRallyPoints) {
         _sendRallyPoints = false;
         if (_rallyPointController.supported()) {
@@ -297,16 +281,14 @@ void PlanMasterController::_sendGeoFenceComplete(void)
     }
 }
 
-void PlanMasterController::_sendRallyPointsComplete(void)
-{
+void PlanMasterController::_sendRallyPointsComplete(void) {
     qCDebug(PlanMasterControllerLog) << "PlanMasterController::sendToVehicle Rally Point send complete";
     if (_deleteWhenSendCompleted) {
         this->deleteLater();
     }
 }
 
-void PlanMasterController::sendToVehicle(void)
-{
+void PlanMasterController::sendToVehicle(void) {
     WeakLinkInterfacePtr weakLink = _managerVehicle->vehicleLinkManager()->primaryLink();
     if (weakLink.expired()) {
         // Vehicle is shutting down
@@ -331,8 +313,7 @@ void PlanMasterController::sendToVehicle(void)
     }
 }
 
-void PlanMasterController::loadFromFile(const QString& filename)
-{
+void PlanMasterController::loadFromFile(const QString& filename) {
     QString errorString;
     QString errorMessage = tr("Error loading Plan file (%1). %2").arg(filename).arg("%1");
 
@@ -341,7 +322,7 @@ void PlanMasterController::loadFromFile(const QString& filename)
     }
 
     QFileInfo fileInfo(filename);
-    QFile file(filename);
+    QFile     file(filename);
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         errorString = file.errorString() + QStringLiteral(" ") + filename;
@@ -363,8 +344,8 @@ void PlanMasterController::loadFromFile(const QString& filename)
             success = true;
         }
     } else {
-        QJsonDocument   jsonDoc;
-        QByteArray      bytes = file.readAll();
+        QJsonDocument jsonDoc;
+        QByteArray    bytes = file.readAll();
 
         if (!JsonHelper::isJsonFile(bytes, jsonDoc, errorString)) {
             qgcApp()->showAppMessage(errorMessage.arg(errorString));
@@ -382,18 +363,16 @@ void PlanMasterController::loadFromFile(const QString& filename)
         }
 
         QList<JsonHelper::KeyValidateInfo> rgKeyInfo = {
-            { kJsonMissionObjectKey,        QJsonValue::Object, true },
-            { kJsonGeoFenceObjectKey,       QJsonValue::Object, true },
-            { kJsonRallyPointsObjectKey,    QJsonValue::Object, true },
+            { kJsonMissionObjectKey, QJsonValue::Object, true },
+            { kJsonGeoFenceObjectKey, QJsonValue::Object, true },
+            { kJsonRallyPointsObjectKey, QJsonValue::Object, true },
         };
         if (!JsonHelper::validateKeys(json, rgKeyInfo, errorString)) {
             qgcApp()->showAppMessage(errorMessage.arg(errorString));
             return;
         }
 
-        if (!_missionController.load(json[kJsonMissionObjectKey].toObject(), errorString) ||
-                !_geoFenceController.load(json[kJsonGeoFenceObjectKey].toObject(), errorString) ||
-                !_rallyPointController.load(json[kJsonRallyPointsObjectKey].toObject(), errorString)) {
+        if (!_missionController.load(json[kJsonMissionObjectKey].toObject(), errorString) || !_geoFenceController.load(json[kJsonGeoFenceObjectKey].toObject(), errorString) || !_rallyPointController.load(json[kJsonRallyPointsObjectKey].toObject(), errorString)) {
             qgcApp()->showAppMessage(errorMessage.arg(errorString));
         } else {
             //-- Allow plugins to post process the load
@@ -402,7 +381,7 @@ void PlanMasterController::loadFromFile(const QString& filename)
         }
     }
 
-    if(success){
+    if (success) {
         _currentPlanFile = QString::asprintf("%s/%s.%s", fileInfo.path().toLocal8Bit().data(), fileInfo.completeBaseName().toLocal8Bit().data(), AppSettings::planFileExtension);
     } else {
         _currentPlanFile.clear();
@@ -414,8 +393,7 @@ void PlanMasterController::loadFromFile(const QString& filename)
     }
 }
 
-QJsonDocument PlanMasterController::saveToJson()
-{
+QJsonDocument PlanMasterController::saveToJson() {
     QJsonObject planJson;
     qgcApp()->toolbox()->corePlugin()->preSaveToJson(this, planJson);
     QJsonObject missionJson;
@@ -429,23 +407,20 @@ QJsonDocument PlanMasterController::saveToJson()
     qgcApp()->toolbox()->corePlugin()->postSaveToMissionJson(this, missionJson);
     _geoFenceController.save(fenceJson);
     _rallyPointController.save(rallyJson);
-    planJson[kJsonMissionObjectKey] = missionJson;
-    planJson[kJsonGeoFenceObjectKey] = fenceJson;
+    planJson[kJsonMissionObjectKey]     = missionJson;
+    planJson[kJsonGeoFenceObjectKey]    = fenceJson;
     planJson[kJsonRallyPointsObjectKey] = rallyJson;
     qgcApp()->toolbox()->corePlugin()->postSaveToJson(this, planJson);
     return QJsonDocument(planJson);
 }
 
-void
-PlanMasterController::saveToCurrent()
-{
-    if(!_currentPlanFile.isEmpty()) {
+void PlanMasterController::saveToCurrent() {
+    if (!_currentPlanFile.isEmpty()) {
         saveToFile(_currentPlanFile);
     }
 }
 
-void PlanMasterController::saveToFile(const QString& filename)
-{
+void PlanMasterController::saveToFile(const QString& filename) {
     if (filename.isEmpty()) {
         return;
     }
@@ -464,7 +439,7 @@ void PlanMasterController::saveToFile(const QString& filename)
     } else {
         QJsonDocument saveDoc = saveToJson();
         file.write(saveDoc.toJson());
-        if(_currentPlanFile != planFilename) {
+        if (_currentPlanFile != planFilename) {
             _currentPlanFile = planFilename;
             emit currentPlanFileChanged();
         }
@@ -476,8 +451,7 @@ void PlanMasterController::saveToFile(const QString& filename)
     }
 }
 
-void PlanMasterController::saveToKml(const QString& filename)
-{
+void PlanMasterController::saveToKml(const QString& filename) {
     if (filename.isEmpty()) {
         return;
     }
@@ -500,8 +474,7 @@ void PlanMasterController::saveToKml(const QString& filename)
     }
 }
 
-void PlanMasterController::removeAll(void)
-{
+void PlanMasterController::removeAll(void) {
     _missionController.removeAll();
     _geoFenceController.removeAll();
     _rallyPointController.removeAll();
@@ -514,8 +487,7 @@ void PlanMasterController::removeAll(void)
     }
 }
 
-void PlanMasterController::removeAllFromVehicle(void)
-{
+void PlanMasterController::removeAllFromVehicle(void) {
     if (!offline()) {
         _missionController.removeAllFromVehicle();
         if (_geoFenceController.supported()) {
@@ -531,7 +503,7 @@ void PlanMasterController::removeAllFromVehicle(void)
 }
 
 namespace {
-    constexpr const char* SUPER_SECRET_TOKEN{
+    constexpr const char* SUPER_SECRET_TOKEN {
         "Bearer gwvk.eyJhbGciOiJFUzI1NiJ9.eyJ2ZWhpY2xlSWQiOiI2OGFkYWNiZTAzMz"
         "M2N2ExZWRhMjE5OWYiLCJwYWlyaW5nQ29kZSI6IjFCVUhUVDdEIiwiaWF0Ij"
         "oxNzU3NTMwMzg5LCJpc3MiOiJodHRwczovL2dlb3dvcmsubW9iaXMxLmNvbS"
@@ -543,10 +515,10 @@ namespace {
 
 // https://stackoverflow.com/a/60107834
 void PlanMasterController::uploadToGeoWork(void) {
-    QNetworkAccessManager *mgr = new QNetworkAccessManager{ this };
+    QNetworkAccessManager* mgr { new QNetworkAccessManager { this } };
 
-    QNetworkRequest request{
-        QUrl{ QStringLiteral("https://api.geowork.mobis1.com/vehicles-reporting/flight-plan") }
+    QNetworkRequest request {
+        QUrl { QStringLiteral("https://api.geowork.mobis1.com/vehicles-reporting/flight-plan") }
     };
 
     request.setHeader(
@@ -556,16 +528,16 @@ void PlanMasterController::uploadToGeoWork(void) {
 
     request.setRawHeader(
         QByteArrayLiteral("Authorization"),
-        QString(SUPER_SECRET_TOKEN).toUtf8()
+        QString { SUPER_SECRET_TOKEN }.toUtf8()
     );
 
-    QNetworkReply *reply = mgr->put(
+    QNetworkReply* reply { mgr->put(
         request,
         saveToJson().toJson()
-    );
+    ) };
 
-    connect(reply, &QNetworkReply::finished, [=](){
-        if (reply->error() == QNetworkReply::NoError){
+    connect(reply, &QNetworkReply::finished, [=]() {
+        if (reply->error() == QNetworkReply::NoError) {
             qDebug() << "[GeoWork] Request OK:" << QString::fromUtf8(reply->readAll());
         } else {
             qDebug() << "[GeoWork] Request failed:" << (int)reply->error() << '/' << reply->readAll();
@@ -575,53 +547,43 @@ void PlanMasterController::uploadToGeoWork(void) {
     });
 }
 
-bool PlanMasterController::containsItems(void) const
-{
+bool PlanMasterController::containsItems(void) const {
     return _missionController.containsItems() || _geoFenceController.containsItems() || _rallyPointController.containsItems();
 }
 
-bool PlanMasterController::dirty(void) const
-{
+bool PlanMasterController::dirty(void) const {
     return _missionController.dirty() || _geoFenceController.dirty() || _rallyPointController.dirty();
 }
 
-void PlanMasterController::setDirty(bool dirty)
-{
+void PlanMasterController::setDirty(bool dirty) {
     _missionController.setDirty(dirty);
     _geoFenceController.setDirty(dirty);
     _rallyPointController.setDirty(dirty);
 }
 
-QString PlanMasterController::fileExtension(void) const
-{
+QString PlanMasterController::fileExtension(void) const {
     return AppSettings::planFileExtension;
 }
 
-QString PlanMasterController::kmlFileExtension(void) const
-{
+QString PlanMasterController::kmlFileExtension(void) const {
     return AppSettings::kmlFileExtension;
 }
 
-QStringList PlanMasterController::loadNameFilters(void) const
-{
+QStringList PlanMasterController::loadNameFilters(void) const {
     QStringList filters;
 
-    filters << tr("Supported types (*.%1 *.%2 *.%3 *.%4)").arg(AppSettings::planFileExtension).arg(AppSettings::missionFileExtension).arg(AppSettings::waypointsFileExtension).arg("txt") <<
-               tr("All Files (*)");
+    filters << tr("Supported types (*.%1 *.%2 *.%3 *.%4)").arg(AppSettings::planFileExtension).arg(AppSettings::missionFileExtension).arg(AppSettings::waypointsFileExtension).arg("txt") << tr("All Files (*)");
     return filters;
 }
 
-
-QStringList PlanMasterController::saveNameFilters(void) const
-{
+QStringList PlanMasterController::saveNameFilters(void) const {
     QStringList filters;
 
     filters << tr("Plan Files (*.%1)").arg(fileExtension()) << tr("All Files (*)");
     return filters;
 }
 
-void PlanMasterController::sendPlanToVehicle(Vehicle* vehicle, const QString& filename)
-{
+void PlanMasterController::sendPlanToVehicle(Vehicle* vehicle, const QString& filename) {
     // Use a transient PlanMasterController to accomplish this
     PlanMasterController* controller = new PlanMasterController();
     controller->startStaticActiveVehicle(vehicle, true /* deleteWhenSendCompleted */);
@@ -629,8 +591,7 @@ void PlanMasterController::sendPlanToVehicle(Vehicle* vehicle, const QString& fi
     controller->sendToVehicle();
 }
 
-void PlanMasterController::_showPlanFromManagerVehicle(void)
-{
+void PlanMasterController::_showPlanFromManagerVehicle(void) {
     if (!_managerVehicle->initialPlanRequestComplete() && !syncInProgress()) {
         // Something went wrong with initial load. All controllers are idle, so just force it off
         _managerVehicle->forceInitialPlanRequestComplete();
@@ -644,22 +605,15 @@ void PlanMasterController::_showPlanFromManagerVehicle(void)
     }
 }
 
-bool PlanMasterController::syncInProgress(void) const
-{
-    return _missionController.syncInProgress() ||
-            _geoFenceController.syncInProgress() ||
-            _rallyPointController.syncInProgress();
+bool PlanMasterController::syncInProgress(void) const {
+    return _missionController.syncInProgress() || _geoFenceController.syncInProgress() || _rallyPointController.syncInProgress();
 }
 
-bool PlanMasterController::isEmpty(void) const
-{
-    return _missionController.isEmpty() &&
-            _geoFenceController.isEmpty() &&
-            _rallyPointController.isEmpty();
+bool PlanMasterController::isEmpty(void) const {
+    return _missionController.isEmpty() && _geoFenceController.isEmpty() && _rallyPointController.isEmpty();
 }
 
-void PlanMasterController::_updatePlanCreatorsList(void)
-{
+void PlanMasterController::_updatePlanCreatorsList(void) {
     if (!_flyView) {
         if (!_planCreators) {
             _planCreators = new QmlObjectListModel(this);
@@ -681,8 +635,7 @@ void PlanMasterController::_updatePlanCreatorsList(void)
     }
 }
 
-void PlanMasterController::showPlanFromManagerVehicle(void)
-{
+void PlanMasterController::showPlanFromManagerVehicle(void) {
     if (offline()) {
         // There is no new vehicle so clear any previous plan
         qCDebug(PlanMasterControllerLog) << "showPlanFromManagerVehicle: Plan View - No new vehicle, clear any previous plan";

@@ -41,21 +41,40 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: 16
+
             spacing: 10
 
-            Label { text: "Geowork Settings"; font.pixelSize: 18 }
+            Label {
+                text: "GeoWork Settings"
+                font.pointSize: 24
+                font.bold: true
+                color: "azure"
+            }
 
             // Token status + manual fetch
             RowLayout {
                 spacing: 10
-                Label { text: "Token status:" }
+
+                Label {
+                    text: "Token status:"
+                    color: "white"
+                }
+
                 Rectangle {
-                    width: 40; height: 40; radius: 5; border.width: 1
+                    width: 40
+                    height: 40
+                    radius: 5
+                    border.width: 1
+
                     color: GeoWork.tokenStatus === 1 ? "#21A366"   // green
                          : GeoWork.tokenStatus === 2 ? "#D13438"   // red
                          : "#A0A0A0"                               // grey
                 }
-                Item { Layout.fillWidth: true }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
                 Button {
                     text: "Fetch state (manual)"
                     onClicked: {
@@ -66,12 +85,18 @@ Item {
             }
 
             // Drone name (auto-fetch on change)
-            Label { text: "Drone name (state name)" }
+            Label {
+                text: "Drone name (state name)"
+                color: "white"
+            }
+
             TextField {
                 id: nameField
-                Layout.fillWidth: true
                 placeholderText: "e.g. BLUE001"
                 text: GeoWork.deviceName && GeoWork.deviceName.length ? GeoWork.deviceName : "BLUE001"
+
+                Layout.fillWidth: true
+
                 onEditingFinished: {
                     GeoWork.setDeviceName(text)                 // persist
                     GeoWork.checkActiveTaskAndFetchState(text)  // auto-fetch
@@ -79,9 +104,14 @@ Item {
             }
 
             // Token file selection (auto-validate + auto-fetch)
-            Label { text: "Authorization token file" }
+            Label {
+                text: "Authorization token file"
+                color: "white"
+            }
+
             RowLayout {
                 Layout.fillWidth: true
+
                 TextField {
                     id: tokenPath
                     readOnly: true
