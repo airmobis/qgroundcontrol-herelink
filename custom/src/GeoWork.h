@@ -8,6 +8,7 @@
 class QQuickItem;
 
 class GeoWork : public QObject {
+private:
     Q_OBJECT
 
     // Read-only values presented to QML

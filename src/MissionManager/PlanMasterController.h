@@ -81,7 +81,7 @@ public:
     Q_INVOKABLE void removeAllFromVehicle(void); ///< Removes all from vehicle and controller
 
     // NOTE: GeoWork-specific
-    Q_INVOKABLE void uploadToGeoWork(void);
+    Q_INVOKABLE void uploadToGeoWork(const QString& bearerToken);
 
     MissionController*    missionController(void) { return &_missionController; }
     GeoFenceController*   geoFenceController(void) { return &_geoFenceController; }

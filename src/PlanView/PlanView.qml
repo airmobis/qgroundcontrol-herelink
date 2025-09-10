@@ -1015,7 +1015,7 @@ Item {
                     enabled:            !_planMasterController.syncInProgress && _visualItems.count > 1 && GeoWork.projectId !== ""
                     onClicked: {
                         dropPanel.hide()
-                        _planMasterController.uploadToGeoWork()
+                        _planMasterController.uploadToGeoWork(GeoWork.bearerToken)
                     }
                 }
             }

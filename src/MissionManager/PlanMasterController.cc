@@ -502,20 +502,8 @@ void PlanMasterController::removeAllFromVehicle(void) {
     }
 }
 
-namespace {
-    // TODO: Change token!
-    constexpr const char* SUPER_SECRET_TOKEN {
-        "Bearer gwvk.eyJhbGciOiJFUzI1NiJ9.eyJ2ZWhpY2xlSWQiOiI2OGFkYWNiZTAzMz"
-        "M2N2ExZWRhMjE5OWYiLCJwYWlyaW5nQ29kZSI6IjFCVUhUVDdEIiwiaWF0Ij"
-        "oxNzU3NTMwMzg5LCJpc3MiOiJodHRwczovL2dlb3dvcmsubW9iaXMxLmNvbS"
-        "IsImF1ZCI6InVybjpnZW93b3JrOnZlaGljbGU6NjhhZGFjYmUwMzMzNjdhMW"
-        "VkYTIxOTlmIn0.yVBzwKPjtA7ahpw0hwaQrsceXM5x50cU1-69fWc1KI0G7i"
-        "Mtwa18aQRptVlecap0woNjgNKX0BICDkFiBdxetQ"
-    };
-}
-
 // https://stackoverflow.com/a/60107834
-void PlanMasterController::uploadToGeoWork(void) {
+void PlanMasterController::uploadToGeoWork(const QString& bearerToken) {
     QNetworkAccessManager* mgr { new QNetworkAccessManager { this } };
 
     QNetworkRequest request {
@@ -529,7 +517,7 @@ void PlanMasterController::uploadToGeoWork(void) {
 
     request.setRawHeader(
         QByteArrayLiteral("Authorization"),
-        QString { SUPER_SECRET_TOKEN }.toUtf8()
+        bearerToken.toUtf8()
     );
 
     QNetworkReply* reply { mgr->put(
