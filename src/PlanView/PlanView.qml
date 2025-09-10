@@ -25,6 +25,8 @@ import QGroundControl.Palette           1.0
 import QGroundControl.Controllers       1.0
 import QGroundControl.ShapeFileHelper   1.0
 
+import GeoWork 1.0
+
 Item {
     id: _root
 
@@ -1010,7 +1012,7 @@ Item {
                     Layout.columnSpan:  3
                     Layout.fillWidth:   true
                     text:               "Upload to GeoWork"
-                    enabled:            !_planMasterController.syncInProgress && _visualItems.count > 1
+                    enabled:            !_planMasterController.syncInProgress && _visualItems.count > 1 && GeoWork.projectId !== ""
                     onClicked: {
                         dropPanel.hide()
                         _planMasterController.uploadToGeoWork()

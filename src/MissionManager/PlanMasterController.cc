@@ -503,6 +503,7 @@ void PlanMasterController::removeAllFromVehicle(void) {
 }
 
 namespace {
+    // TODO: Change token!
     constexpr const char* SUPER_SECRET_TOKEN {
         "Bearer gwvk.eyJhbGciOiJFUzI1NiJ9.eyJ2ZWhpY2xlSWQiOiI2OGFkYWNiZTAzMz"
         "M2N2ExZWRhMjE5OWYiLCJwYWlyaW5nQ29kZSI6IjFCVUhUVDdEIiwiaWF0Ij"
