@@ -58,17 +58,17 @@ Item {
         console.log("[geowork][qml] overlay completed, attempting autoBindVideo")
         if (typeof GeoWork !== 'undefined') GeoWork.autoBindVideo();
         try {
-            console.log("[geowork][qml] GeoWork object:", GeoWork)
-            console.log("[geowork][qml] tokenStatus:", GeoWork.tokenStatus, "deviceName:", GeoWork.deviceName)
+            console.log("[GeoWork] [QML] GeoWork object:", GeoWork)
+            console.log("[GeoWork] [QML] tokenStatus:", GeoWork.tokenStatus, "deviceName:", GeoWork.deviceName)
         } catch (e) {
-            console.warn("[geowork][qml] GeoWork access failed:", e)
+            console.warn("[GeoWork] [QML] GeoWork access failed:", e)
         }
         try {
             var v = QGroundControl.multiVehicleManager.activeVehicle
-            console.log("[geowork][qml] activeVehicle exists?", !!v)
-            if (v && v.gps && v.gps.count) console.log("[geowork][qml] sats:", v.gps.count.rawValue)
+            console.log("[GeoWork] [QML] activeVehicle exists?", !!v)
+            if (v && v.gps && v.gps.count) console.log("[GeoWork] [QML] sats:", v.gps.count.rawValue)
         } catch (e2) {
-            console.warn("[geowork][qml] vehicle access failed:", e2)
+            console.warn("[GeoWork] [QML] vehicle access failed:", e2)
         }
     }
 
@@ -79,13 +79,13 @@ Item {
         asynchronous: false
         source: "qrc:/qml/QGroundControl/FlightDisplay/GeoWorkSettingsPanel.qml"
         onStatusChanged: {
-             console.log("[geowork][qml] loader status:", status)
+             console.log("[GeoWork] [QML] loader status:", status)
             if (status === Loader.Ready && item) {
                 item.anchors.fill = _root
                 item.visible = false
                 console.log("[GeoWork] Settings panel loaded")
             } else if (status === Loader.Error) {
-                console.warn("[geowork][qml] settings load ERROR; status:", status, "source:", source)
+                console.warn("[GeoWork] [QML] settings load ERROR; status:", status, "source:", source)
             }
         }
     }
@@ -113,8 +113,8 @@ Item {
     // ---- Right/middle Geowork control pod (2 buttons, semi-transparent) ----
     Rectangle {
         id: geoworkPod
-        width: ScreenTools.defaultFontPixelWidth * 20
-        height: ScreenTools.defaultFontPixelHeight * 7
+        width: ScreenTools.defaultFontPixelWidth * 26
+        height: ScreenTools.defaultFontPixelHeight * 8
         radius: 10
         color: "#66000000"    // semi-transparent
         border.width: 3
@@ -127,6 +127,8 @@ Item {
             anchors.fill: parent
             anchors.margins: ScreenTools.defaultFontPixelWidth
             spacing: ScreenTools.defaultFontPixelHeight * 0.6
+
+            anchors.horizontalCenter: parent.horizontalCenter
 
             // ---- Settings button with OK/BAD icon ----
             Button {
@@ -143,6 +145,7 @@ Item {
                 contentItem: Row {
                     spacing: ScreenTools.defaultFontPixelWidth * 0.6
                     anchors.verticalCenter: parent.verticalCenter
+
                     Image {
                         id: settingsIcon
                         // Provide these SVGs in custom.qrc under prefix custom/img
@@ -152,14 +155,16 @@ Item {
                                     ? "qrc:/custom/img/setting_OK.svg"
                                     : "qrc:/custom/img/setting_BAD.svg"
                             } catch (e) {
-                                console.warn("[geowork][qml] settings icon binding error:", e)
+                                console.warn("[GeoWork] [QML] settings icon binding error:", e)
                                 return "qrc:/custom/img/setting_BAD.svg"
                             }
                         })()
+
                         fillMode: Image.PreserveAspectFit
                         width: ScreenTools.defaultFontPixelHeight * 1.4
                         height: width
                     }
+
                     Text {
                         text: "Settings"
                         color: "white"
@@ -167,6 +172,7 @@ Item {
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
+
                 onClicked: if (geoPanel.item) geoPanel.item.open()
             }
 
@@ -183,12 +189,11 @@ Item {
 
                 // GeoWork state
                 readonly property bool hasToken: GeoWork.tokenStatus === 1
-                readonly property bool taskActive: GeoWork.stateId && GeoWork.stateId.length > 0
+                readonly property bool taskActive: GeoWork.stateId && GeoWork.stateId !== ""
 
                 // Modes
                 readonly property bool modeTransparent: !hasToken
                 readonly property bool modeActive: hasToken && connected && sats >= 3 && taskActive
-                readonly property bool modeOff: hasToken && (!taskActive || !connected || sats < 3)
 
                 Rectangle {
                     anchors.fill: parent
@@ -224,22 +229,45 @@ Item {
                 }
             }
 
-            // Bearer token, represented by a key.
-            Image {
-                source: "qrc:/InstrumentValueIcons/key.svg"
-                visible: createBtn.hasToken
-            }
+            GridLayout {
+                id: criteriaIndicator
 
-            // Connection, represented by a Wi-Fi symbol.
-            Image {
-                source: "qrc:/qmlimages/Quad.svg"
-                visible: createBtn.connected
-            }
+                columns: 4
 
-            // Connection, represented by a Wi-Fi symbol.
-            Image {
-                source: "qrc:/qmlimages/Gps.svg"
-                visible: createBtn.sats >= 3
+                readonly property string enabledColor: "#FFFF00"
+                readonly property string disabledColor: "#B0B0B0"
+
+                // Bearer token.
+                Label {
+                    text: "TOK"
+                    font.bold: true
+                    color: createBtn.hasToken ? criteriaIndicator.enabledColor : criteriaIndicator.disabledColor
+                    Layout.fillWidth: true
+                }
+
+                // Vehicular connection.
+                Label {
+                    text: "CON"
+                    font.bold: true
+                    color: createBtn.connected ? criteriaIndicator.enabledColor : criteriaIndicator.disabledColor
+                    Layout.fillWidth: true
+                }
+
+                // Active task.
+                Label {
+                    text: "TSK"
+                    font.bold: true
+                    color: createBtn.taskActive ? criteriaIndicator.enabledColor : criteriaIndicator.disabledColor
+                    Layout.fillWidth: true
+                }
+
+                // Sufficient sattelite connectivity.
+                Label {
+                    text: "SAT"
+                    font.bold: true
+                    color: createBtn.sats >= 3 ? criteriaIndicator.enabledColor : criteriaIndicator.disabledColor
+                    Layout.fillWidth: true
+                }
             }
         }
     }
