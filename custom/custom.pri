@@ -90,12 +90,10 @@ INCLUDEPATH += $$PWD/herelink
 
 # Custom versions of a Herelink build should only add changes below here to prevent conflicts
 SOURCES += \
-    $$PWD/src/GeoWork.cpp \
-    $$PWD/src/CustomPlugin.cc \
-    $$PWD/src/GeoWork_qmlinit.cpp
+    $$PWD/src/GeoWork.cc \
+    $$PWD/src/GeoWork_qmlinit.cc
 
 HEADERS += \
-    $$PWD/src/GeoWork.h \
-    $$PWD/src/CustomPlugin.h
+    $$PWD/src/GeoWork.h
 
 QT += network

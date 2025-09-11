@@ -29,13 +29,16 @@ private slots:
 
 private:
     int _systemId;
+
     LinkInterface *_linkInterface;
     MAVLinkProtocol *_mavlinkProtocol;
     VideoSettings *_videoSettings;
     QTimer _settingInProgressTimer;
-    uint32_t _cameraServiceUid;
-    uint32_t _cameraCount;
-    uint32_t _cameraIdSetting;
+
+    std::uint32_t _cameraServiceUid;
+    std::uint32_t _cameraCount;
+    std::uint32_t _cameraIdSetting;
+
     bool _settingInProgress;
 
     void _handleHeartbeatInfo(LinkInterface* link, mavlink_message_t& message);
