@@ -1453,3 +1453,4 @@ LinuxBuild {
 
     INSTALLS += target share_qgroundcontrol share_icons share_metainfo share_applications
 }
+android: include(/home/petr/android-sdk/android_openssl/openssl.pri)

@@ -3,11 +3,11 @@ import QtQuick 2.12
 import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.12
 import QtQuick.Dialogs 1.3
+import QtQuick.Window 2.15
 import GeoWork 1.0
 
 Item {
     id: panel
-    anchors.fill: parent
     visible: false
     z: 9999
 
@@ -34,8 +34,9 @@ Item {
         color: "white"
         border.width: 1
         anchors.centerIn: parent
-        //anchors.verticalCenter: parent.verticalCenter
-        //anchors.horizontalCenter: parent.horizontalCenter
+
+        x: 512
+        y: 240
 
         ColumnLayout {
             Layout.fillWidth: true

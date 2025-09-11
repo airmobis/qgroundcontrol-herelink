@@ -29,8 +29,6 @@ import QGroundControl.Vehicle       1.0
 
 import GeoWork 1.0
 
-
-
 Item {
     id: _root
 
@@ -135,11 +133,13 @@ Item {
                 id: settingsBtn
                 width: parent.width - (ScreenTools.defaultFontPixelWidth * 2)
                 implicitHeight: ScreenTools.defaultFontPixelHeight * 2.2
+
                 background: Rectangle {
                     radius: 6
                     color: "#444444"      // darker grey
                     opacity: 0.95
                 }
+
                 contentItem: Row {
                     spacing: ScreenTools.defaultFontPixelWidth * 0.6
                     anchors.verticalCenter: parent.verticalCenter
@@ -202,7 +202,7 @@ Item {
                         width: ScreenTools.defaultFontPixelHeight * 3
                         height: width
                         visible: !createBtn.modeTransparent
-                        // You already have icon-active.svg and icon-off.svg in custom/img
+
                         source: createBtn.modeActive
                                 ? "qrc:/custom/img/icon-active.svg"
                                 : "qrc:/custom/img/icon-off.svg"
@@ -222,6 +222,24 @@ Item {
                         }
                     }
                 }
+            }
+
+            // Bearer token, represented by a key.
+            Image {
+                source: "qrc:/InstrumentValueIcons/key.svg"
+                visible: createBtn.hasToken
+            }
+
+            // Connection, represented by a Wi-Fi symbol.
+            Image {
+                source: "qrc:/qmlimages/Quad.svg"
+                visible: createBtn.connected
+            }
+
+            // Connection, represented by a Wi-Fi symbol.
+            Image {
+                source: "qrc:/qmlimages/Gps.svg"
+                visible: createBtn.sats >= 3
             }
         }
     }

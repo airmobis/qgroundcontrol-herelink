@@ -1,5 +1,5 @@
 <RCC>
-    <qresource prefix="custom/img">
+    <qresource prefix="/custom/img">
         <file alias="icon-active.svg">res/Images/icon-active.svg</file>
         <file alias="icon-off.svg">res/Images/icon-off.svg</file>
         <file alias="setting_OK.svg">res/Images/setting_OK.svg</file>
@@ -21,10 +21,9 @@
     <qresource prefix="/qmlimages">
         <file alias="PaperPlane.svg">res/Images/CustomVehicleIcon.svg</file>
     </qresource>
-    <qresource prefix="Custom/Widgets">
-    </qresource>
+    <qresource prefix="/Custom/Widgets"/>
     <qresource prefix="/qml">
-        <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">res/CustomFlyViewOverlay.qml</file>
         <file alias="QGroundControl/FlightDisplay/GeoWorkSettingsPanel.qml">res/GeoWorkSettingsPanel.qml</file>
+        <!-- <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">res/FlyViewCustomLayer.qml</file> -->
     </qresource>
 </RCC>
