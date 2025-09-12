@@ -77,7 +77,6 @@ HEADERS += \
     $$PWD/src/HerelinkCorePlugin.h \
     $$PWD/src/HerelinkOptions.h \
 
-
 INCLUDEPATH += \
     $$PWD/src \
 
@@ -92,6 +91,8 @@ INCLUDEPATH += $$PWD/herelink
 SOURCES += \
     $$PWD/src/GeoWork.cc \
     $$PWD/src/GeoWork_qmlinit.cc
+    $$PWD/src/ColorPicker.cc
+    $$PWD/src/ColorPicker.h
 
 HEADERS += \
     $$PWD/src/GeoWork.h

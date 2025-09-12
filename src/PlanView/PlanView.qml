@@ -1008,11 +1008,14 @@ Item {
                     }
                 }
 
+                // NOTE: GeoWork-specific
                 QGCButton {
                     Layout.columnSpan:  3
                     Layout.fillWidth:   true
+
                     text:               "Upload to GeoWork"
                     enabled:            !_planMasterController.syncInProgress && _visualItems.count > 1 && GeoWork.projectId !== ""
+
                     onClicked: {
                         dropPanel.hide()
                         _planMasterController.uploadToGeoWork(GeoWork.bearerToken)
