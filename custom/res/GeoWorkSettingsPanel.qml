@@ -4,6 +4,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.12
 import QtQuick.Dialogs 1.3
 import QtQuick.Window 2.15
+
 import GeoWork 1.0
 
 Item {
@@ -34,6 +35,8 @@ Item {
         color: "white"
         border.width: 1
         anchors.centerIn: parent
+
+        readonly property string defaultMarkerColor: "red"
 
         x: 512
         y: 240
@@ -104,6 +107,22 @@ Item {
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+
+                TextField {
+                    readOnly: true
+                    Layout.fillWidth: true
+                    placeholderText: "Choose marker state..."
+                    text: markerStateSelector.currentText
+                }
+
+                ComboBox {
+                    id: markerStateSelector
+                    model: GeoWork.projectStates;
+                }
+            }
+
             // Token file selection (auto-validate + auto-fetch)
             Label {
                 text: "Authorization token file"
@@ -120,6 +139,7 @@ Item {
                     placeholderText: "Choose a file..."
                     text: panel.pickedFileUrl
                 }
+
                 Button {
                     text: "Choose…"
                     onClicked: tokenChooser.open()

@@ -62,10 +62,8 @@ CONFIG += AndroidHomeApp
 # Not yet used
 RESOURCES += \
     $$PWD/custom.qrc
-message(*** USING custom.qrc from $$PWD ***)
 
-QML_IMPORT_PATH += \
-   $$PWD/src
+message(*** USING custom.qrc from $$PWD ***)
 
 # Herelink specific custom sources
 SOURCES += \
@@ -90,11 +88,14 @@ INCLUDEPATH += $$PWD/herelink
 # Custom versions of a Herelink build should only add changes below here to prevent conflicts
 SOURCES += \
     $$PWD/src/GeoWork.cc \
-    $$PWD/src/GeoWork_qmlinit.cc
-    $$PWD/src/ColorPicker.cc
-    $$PWD/src/ColorPicker.h
 
 HEADERS += \
     $$PWD/src/GeoWork.h
 
 QT += network
+
+CONFIG += qmltypes
+QML_IMPORT_NAME = GeoWork
+QML_IMPORT_MAJOR_VERSION = 1
+QML_IMPORT_PATH += \
+   $$PWD/res

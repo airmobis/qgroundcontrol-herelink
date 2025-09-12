@@ -37,12 +37,14 @@
 constexpr const char* kUrlSession { "https://api.geowork.mobis1.com/vehicles-reporting/session" },
     *kUrlState          { "https://api.geowork.mobis1.com/vehicles-reporting/project-marker-state" },
     *kUrlMarker         { "https://api.geowork.mobis1.com/vehicles-reporting/markers/create" },
-    *kUrlReportLocation { "https://api.geowork.mobis1.com/vehicles-reporting/report-location" };
+    *kUrlReportLocation { "https://api.geowork.mobis1.com/vehicles-reporting/report-location" },
 
 GeoWork::GeoWork(QObject* parent)
     : QObject { parent },
     _tokenStatus { TokenStatus::None } {
     loadSettings();
+
+    connect(this, &GeoWork::projectIdChanged, this, &GeoWork::fetchProjectStates);
 }
 
 QByteArray GeoWork::authHeader() const {
@@ -289,6 +291,8 @@ void GeoWork::checkActiveTaskAndFetchState(const QString& stateName) {
             const QString newProjectId = activeTask.value(QStringLiteral("projectId")).toString();
             if (_projectId != newProjectId) {
                 _projectId = newProjectId;
+
+                // fetch markers
 
                 emit projectIdChanged();
             }
@@ -822,7 +826,7 @@ void GeoWork::_captureAndSave() {
         return;
     }
 
-    QObject::connect(grab.data(), &QQuickItemGrabResult::ready, this, [this, grab]() {
+    connect(grab.data(), &QQuickItemGrabResult::ready, this, [this, grab]() {
         const QImage img = grab->image();
         if (img.isNull()) {
             qWarning() << "[geowork] AddPhoto: captured image is null";
@@ -884,6 +888,63 @@ void GeoWork::autoBindVideo() {
     qWarning() << "[geowork] autoBindVideo(): no video item found";
 }
 
+void GeoWork::fetchProjectStates() {
+    if (_projectId.isEmpty()) {
+        qDebug() << "[GeoWork] Trying to fetchProjectStates() on an empty project ID";
+
+        return;
+    }
+
+    QString url{ QStringLiteral("https://api.geowork.mobis1.com/projects") };
+    url += "/projects/";
+    url += _projectId;
+    url += "/states";
+
+    qDebug() << "[GeoWork] fetchProjectStates(): fetching" << url;
+
+    // 1) Check the current session for an active task
+    QNetworkRequest req{ QUrl{ url } };
+    req.setRawHeader("Authorization", authHeader());
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply* reply = _nam.get(req);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        const QByteArray resp = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "[GeoWork] fetchProjectStates(): error:" << reply->errorString()
+                       << '/' << resp;
+            reply->deleteLater();
+
+            return;
+        }
+
+        QJsonParseError     jerr {};
+        const QJsonDocument doc = QJsonDocument::fromJson(resp, &jerr);
+        if (jerr.error != QJsonParseError::NoError || !doc.isObject()) {
+            qWarning() << "[GeoWork] fetchProjectStates(): JSON parse error:" << jerr.errorString();
+
+            reply->deleteLater();
+
+            return;
+        }
+
+        const QJsonObject root      = doc.object();
+        const QJsonObject data      = root.value(QStringLiteral("data")).toObject();
+        const QJsonObject markerObj = data.value(QStringLiteral("ownedSets")).toObject();
+        const QJsonArray  markerId  = markerObj.value(QStringLiteral("states")).toArray();
+
+        qInfo() << "[GeoWork] fetchProjectStates(): success";
+
+        reply->deleteLater();
+
+        _states = std::move(markerId);
+
+        emit projectStatesChanged();
+    });
+}
+
 QQuickItem* GeoWork::_findVideoItemRecursive(QQuickItem* item) const {
     if (!item) {
         return nullptr;
@@ -938,7 +999,7 @@ void GeoWork::AddPhotoForMarker(const QString& markerId) {
         return;
     }
 
-    QObject::connect(grab.data(), &QQuickItemGrabResult::ready, this, [this, markerId, grab]() {
+    connect(grab.data(), &QQuickItemGrabResult::ready, this, [this, markerId, grab]() {
         const QImage img = grab->image();
         if (img.isNull()) {
             qWarning() << "[geowork] AddPhotoForMarker(): captured image is null";

@@ -3,7 +3,9 @@
 #include <QGeoCoordinate>
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QJsonArray>
 #include <QSettings>
+#include <QtQml/qqml.h>
 
 class QQuickItem;
 
@@ -21,6 +23,11 @@ private:
     // 0 = NoToken (grey), 1 = Valid (green), 2 = Invalid (red)
     Q_PROPERTY(int tokenStatus READ tokenStatus NOTIFY tokenStatusChanged)
 
+    Q_PROPERTY(QJsonArray projectStates READ projectStates NOTIFY projectStatesChanged)
+
+    QML_ELEMENT
+    QML_SINGLETON
+
 public:
     enum class TokenStatus : std::uint8_t {
         None,
@@ -32,16 +39,18 @@ public:
 
     // Getters for QML
 
-    QString projectId() const { return _projectId; }
-    QString stateId() const { return _stateId; }
-    QString deviceName() const { return _deviceName; }
-    QString bearerToken() const { return _bearerToken; }
-    int     tokenStatus() const { return static_cast<int>(_tokenStatus); }
+    QString 	projectId() const { return _projectId; }
+    QString 	stateId() const { return _stateId; }
+    QString 	deviceName() const { return _deviceName; }
+    QString 	bearerToken() const { return _bearerToken; }
+    int     	tokenStatus() const { return static_cast<int>(_tokenStatus); }
+    QJsonArray 	projectStates() const { return _states; }
 
 public slots:
     // --- Main flow used by QML ---
     // 1) Check session; if active task, POST project-marker-state {name}; cache stateId
     void checkActiveTaskAndFetchState(const QString& stateName);
+    void fetchProjectStates();
 
     // 2) Create a marker using current GPS from active vehicle
     void createMarker();
@@ -50,7 +59,7 @@ public slots:
     Q_INVOKABLE void setVideoItem(QObject* videoItem); // bind the live video surface from QML
     Q_INVOKABLE void AddPhoto();
     Q_INVOKABLE void AddPhotoForMarker(const QString& markerId);
-    Q_INVOKABLE void autoBindVideo(); // try to locate video item automatically                         // capture current frame and save to Downloads
+    Q_INVOKABLE void autoBindVideo(); // try to locate video item automatically
 
     // --- Settings helpers (persisted via QSettings) ---
     void setDeviceName(const QString& name);
@@ -72,6 +81,7 @@ signals:
     void deviceNameChanged();
     void bearerTokenChanged();
     void tokenStatusChanged();
+    void projectStatesChanged();
     void photoSaved(const QString& savedPath);
     void photoSaveFailed(const QString& reason);
 
@@ -101,4 +111,6 @@ private:
 
     // Organization/App for QSettings (Android/desktop-safe)
     QSettings _settings { "Airmobis", "QGroundControl" };
+
+    QJsonArray _states;
 };
